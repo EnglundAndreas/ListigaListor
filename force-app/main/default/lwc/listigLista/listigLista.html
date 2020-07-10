@@ -1,0 +1,22 @@
+<template>
+    <lightning-card title={strTitle} icon-name="standard:record">
+        <div class="slds-m-around_medium">
+            <div if:true={records.data}>
+                <template for:each={records.data} for:item="rec">
+                    <div key={rec.Id} class="slds-box">
+                        <lightning-record-form
+                            record-id={rec.Id}
+                            data={records}
+                            columns={columns}
+                            object-api-name={objectName}
+                            layout-type="Compact"
+                            mode="view"
+                            draft-values={draftValues}
+                            onsave={handleSave}>
+                        </lightning-record-form>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </lightning-card>
+</template>
