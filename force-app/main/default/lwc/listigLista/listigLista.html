@@ -1,22 +1,29 @@
 <template>
-    <lightning-card title={strTitle} icon-name="standard:record">
-        <div class="slds-m-around_medium">
-            <div if:true={records.data}>
-                <template for:each={records.data} for:item="rec">
-                    <div key={rec.Id} class="slds-box">
-                        <lightning-record-form
-                            record-id={rec.Id}
-                            data={records}
-                            columns={columns}
-                            object-api-name={objectName}
-                            layout-type="Compact"
-                            mode="view"
-                            draft-values={draftValues}
-                            onsave={handleSave}>
-                        </lightning-record-form>
-                    </div>
-                </template>
+    <lightning-card icon-name={iconName}>
+        <lightning-button label="New" slot="actions" onclick={createNew}></lightning-button>
+        <div slot="title" onclick={clickViewAll} >
+            <a class="slds-card__header-link" href="javascript:void(0);">{listTitle}</a>
+        </div>
+        <div slot="footer">
+            <div if:true={countBool}>
+                <lightning-button label="View All" onclick={clickViewAll}></lightning-button>
             </div>
         </div>
+            <div id="listDataTable">
+                <lightning-datatable
+                        key-field="id"
+                        data={records}
+                        columns={columns}
+                        onrowselection={getSelectedName}
+                        onrowaction={handleRowAction}
+                        onsave={handleSave}
+                        draft-values={draftValues}
+                        onsort={updateColumnSorting}>
+                </lightning-datatable>
+
+            </div>
     </lightning-card>
+    <template if:true={showViewAll}>
+        <c-listig-lista record-id={recordId} object-api-name={objectApiName} object-name={objectName} icon-name={iconName} full-list-view=true></c-listig-lista>     
+    </template>
 </template>

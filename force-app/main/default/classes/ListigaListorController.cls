@@ -1,25 +1,61 @@
 public with sharing class ListigaListorController {
 
     @AuraEnabled(cacheable=true)
-    public static List<SObject> getRecords(String objectName, String fieldNames, String recordId, String parentFieldName, String filter){
-        String soqlStr = 'SELECT '+fieldNames+' FROM ' + objectName + ' WHERE ' + filter + ' AND ' + parentFieldName +' = '+recordId;
-        return Database.query( soqlStr );
+    public static List<SObject> getRecordsByQuery(String query, String recordId, String objectApiName){
+        Pattern p = Pattern.compile ('\\$record\\.([\\w]+)');
+        Matcher pm = p.matcher(query);
+        List<String> selectFields = new List<String>();
+        while(pm.find()) {
+            System.debug(pm.group(1));
+            selectFields.add(pm.group(1));
+        }
+        if(!selectFields.isEmpty()){
+            String recordQuery = 'SELECT '+String.join(selectFields, ', ')+' FROM '+objectApiName+' WHERE Id = \''+recordId +'\' LIMIT 1';
+            System.debug('recordQuery '+recordQuery);
+            SObject record = Database.query(recordQuery);
+            System.debug('record '+record);
+            Map<String, Object> recordFieldMap = record.getPopulatedFieldsAsMap();
+            for(String fieldName : recordFieldMap.keySet()){
+                Object fieldValue = recordFieldMap.get(fieldName);
+                Boolean fieldNeedsQuotes = ListigaListorController.typeNeedsQuotes.get(getType(fieldValue));
+                if(fieldNeedsQuotes){
+                    query = query.replaceAll('\\$record\\.'+fieldName, '\''+String.valueOf(fieldValue)+'\'');
+                }else{
+                    query = query.replaceAll('\\$record\\.'+fieldName, String.valueOf(fieldValue));
+                }
+            }
+        }
+        System.debug('query '+query);
+
+//        query = query.replace('$recordId', '\''+recordId+'\'');
+        System.debug('query after replace '+query);
+        return Database.query( query );
+    }
+
+    @AuraEnabled
+    public static String getFieldLabel(String apiName, String objectName) {
+        String fieldLabel = Schema.getGlobalDescribe().get(objectName).getDescribe().fields.getMap().get(apiName).getDescribe().getLabel();
+        System.debug(fieldLabel);
+        return fieldLabel;
     }
 
     @AuraEnabled
     public static void updateRecords(List<SObject> sObjList, String updateObjStr, String objectName) {
-        schema.SObjectType sobjType = Schema.getGlobalDescribe().get(ObjectName);
+        System.debug('<< sObjList '+sObjList);
+        
+        
+        Schema.SObjectType sobjType = Schema.getGlobalDescribe().get(ObjectName);
 
         Map<String, Schema.sObjectField> sObjectFields = sobjType.getDescribe().fields.getMap();
         List<sObject> updateList = new List<sObject>();
         List<Object> obList = (List<object>) json.deserializeUntyped(updateObjStr);
-        for(object ob : obList) {
+        for(Object ob : obList) {
             Map<String, object> obmap = (Map<String, object>)ob;
             String rowKey = (String)obmap.get('id');
             Integer rowKeyInt = Integer.ValueOf(rowKey.removeStart('row-'));
 
             sobject sObj = sObjList[rowKeyInt];
-            for(string fieldName : obmap.keySet()) {
+            for(String fieldName : obmap.keySet()) {
                 if(fieldName != 'id') {
                     Object value = obmap.get(fieldName);
                     Schema.DisplayType valueType = sObjectFields.get(fieldName).getDescribe().getType();
@@ -32,18 +68,18 @@ public with sharing class ListigaListorController {
                             try{
                                 System.debug( (DateTime)value);
                             }catch(exception ex) {
-                                system.debug(ex.getmessage());
+                                System.debug(ex.getmessage());
                             }
                             String d1 = svalue;
-                            list<String> d2 = d1.split('-');
-                            list<integer> timeComponent = new list<integer>();
+                            List<String> d2 = d1.split('-');
+                            List<integer> timeComponent = new List<integer>();
                             timeComponent.add(Integer.valueOf(d2[0]));
                             timeComponent.add(Integer.valueOf(d2[1]));
                             timeComponent.add(Integer.valueOf(d2[2].left(2)));
 
                             String t = d2[2].substringBetween('T','.');
 
-                            list<String> time1 = t.split(':');
+                            List<String> time1 = t.split(':');
                             timeComponent.add(Integer.valueOf(time1[0]));
                             timeComponent.add(Integer.valueOf(time1[1]));
                             timeComponent.add(Integer.valueOf(time1[2]));
@@ -72,17 +108,37 @@ public with sharing class ListigaListorController {
 
         update updateList;
     }
-
-    public class ListParams {
-        @AuraEnabled
-        public Id recordId {get;set;}
-        @AuraEnabled
-        public String fields {get;set;}
-        @AuraEnabled
-        public String objectName {get;set;}
-        @AuraEnabled
-        public String parentFieldName {get;set;}
-        @AuraEnabled
-        public String filter {get;set;}
+    public static string getType(Object o) {
+        if(o==null) return '';              // we can't say much about null with our current techniques
+        if(o instanceof SObject)            return ((SObject)o).getSObjectType().getDescribe().getName()+'';
+        if(o instanceof Boolean)            return 'Boolean';
+        if(o instanceof Id)                 return 'Id';
+        if(o instanceof String)             return 'String';
+        if(o instanceof Blob)               return 'Blob';
+        if(o instanceof Date)               return 'Date';
+        if(o instanceof Datetime)           return 'Datetime';
+        if(o instanceof Time)               return 'Time';
+        if(o instanceof String)             return 'String';
+        if(o instanceof Integer)            return 'Integer';
+        if(o instanceof Long)               return 'Long';
+        if(o instanceof Decimal)            return 'Decimal';  // we can't distinguish between decimal and double
+        if(o instanceof Double)             return 'Double';   // we can't distinguish between decimal and double
+        if(o instanceof List<object>)       return 'List';
+        return 'Object';                    // actually we can't detect maps and sets and maps
     }
+    private static Map<String,Boolean> typeNeedsQuotes = new Map<String,Boolean>{
+        'Boolean' => true,
+        'Id' => true,
+        'String' => true,
+        'Blob' => false,
+        'Date' => true,
+        'Datetime' => true,
+        'String' => true,
+        'Integer' => false,
+        'Long' => false,
+        'Decimal' => false,
+        'Double' => false,
+        'List' => false
+    };
+
 }
