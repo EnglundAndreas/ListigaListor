@@ -1,0 +1,61 @@
+<template>
+    <lightning-card icon-name={iconName}>
+
+        <lightning-button label="New" slot="actions" onclick={createNew}></lightning-button>
+        <div slot="title">
+            <a class="slds-card__header-link" href="javascript:void(0);" onclick={clickViewAll}>{listTitle} ({totalNumberOfRows})</a>
+        </div>
+        <div slot="footer">
+            <template if:false={fullListView}>
+                <lightning-button label="View All" variant="Base" onclick={clickViewAll}></lightning-button>
+            </template>
+        </div>
+            <div id="listDataTable">
+                <template if:true={error}>
+                    <p class="slds-text-color_error">{error}</p>
+                </template>
+                <!-- <c-custom-data-table
+                    key-field="Id"
+                    data={data}
+                    columns={columns}
+                    onpicklistchanged={picklistChanged}
+                    onvalueselect={handleSelection}
+                    draft-values={draftValues}
+                    oncellchange={handleCellChange}
+                    onrowaction={handleRowAction}
+                    onsave={handleSave}
+                    oncancel={handleCancel}
+                >
+                </c-custom-data-table> -->
+                <lightning-datatable
+                        key-field="id"
+                        data={data}
+                        columns={columns}
+                        onrowaction={handleRowAction}
+                        show-row-number-column={showRowNumbers}
+                        onsave={handleSave}
+                        draft-values={draftValues}
+                        onsort={updateColumnSorting}>
+                             <!-- enable-infinite-loading
+             is-loading={tableLoading}
+             onloadmore={loadMoreData}  -->
+                </lightning-datatable>
+                <template if:true={showModal}>
+                    <c-record-edit-page
+                        show-modal={showModal}
+                        show-positive=true
+                        positive-button-label='Save'
+                        show-negative=true
+                        onpositive={closeModal}
+                        onclose={closeModal}
+                        record-id={editRecordId}
+                        record-info={editRecord}
+                        record-type-id={recordTypeId}
+                        object-api-name={childObjectName}
+                    >
+                    </c-record-edit-page>
+                </template>
+            </div>
+            {loadMoreStatus}
+    </lightning-card>
+</template>

@@ -1,0 +1,30 @@
+<template>
+    <lightning-card>
+    <lightning-card icon-name={iconName}>
+        <lightning-button label="New" slot="actions" onclick={createNew}></lightning-button>
+        <div slot="title" onclick={clickViewAll} >
+            <a class="slds-card__header-link" href="javascript:void(0);" onclick={clickViewAll}>{listTitle} ({totalNumberOfRows})</a>
+        </div>
+    </lightning-card>        
+        <div slot="footer">
+            <template if:false={fullListView}>
+                <lightning-button label="View All" variant="base" onclick={clickViewAll}></lightning-button>
+            </template>
+        </div>
+            <div id="listDataTable" >
+                <lightning-datatable
+                        key-field="id"
+                        data={data}
+                        columns={columns}
+                        onrowaction={handleRowAction}
+                        onsave={handleSave}
+                        draft-values={draftValues}
+                        onsort={updateColumnSorting}>
+                             <!-- enable-infinite-loading
+             is-loading={tableLoading}
+             onloadmore={loadMoreData} -->
+                </lightning-datatable>
+            </div>
+            {loadMoreStatus}
+    </lightning-card>
+</template>

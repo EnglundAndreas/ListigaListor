@@ -1,0 +1,12 @@
+<template>
+    <lightning-record-form 
+        object-api-name={objectApiName} 
+        layout-type="Full" 
+        columns="2" 
+        mode="edit"
+        onsuccess={handleSuccess} 
+        onsubmit={handleSubmit}
+        record-type-id={recordTypeId}>
+        <lightning-input-field field-name="AccountId" value={parentId}></lightning-input-field>
+    </lightning-record-form>
+</template>

@@ -1,0 +1,43 @@
+.picklist-container,
+.lookup-container{
+    width : auto;
+    max-width: 90%;
+    margin: 0 auto;
+    top: 0px;
+    left:0px;
+    position: absolute;
+    overflow: visible;
+}
+.slds-hint-parent {
+    overflow: visible;
+}
+
+.picklist-container .slds-dropdown,
+.lookup-container .slds-dropdown{
+    position: relative !important;
+    /* top: auto;
+    left: auto; */
+    overflow: scroll;
+    z-index: 99 !important;
+    max-height: 300px;
+}
+
+[lightning-combobox_combobox-host]{
+    margin-bottom: 17px;
+}
+
+th.slds-has-focus, td.slds-has-focus{
+    box-shadow: none !important;
+}
+tr {
+    height: 10px !important;
+    overflow: visible;
+    position: relative;
+}
+td {
+    overflow: visible;
+}
+
+.slds-table_edit thead th:first-child{
+    width: 30px;
+}

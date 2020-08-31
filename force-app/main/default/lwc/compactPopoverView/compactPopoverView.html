@@ -1,0 +1,24 @@
+<template>
+    <template if:true={recordFields} >
+        <lightning-card title={recordName} icon-name={iconName}>
+        <lightning-record-view-form
+                record-id={recordId}
+                object-api-name={objectName}>
+            <div class="potato slds-box" style={boxClass}>
+                <template for:each={recordFields} for:item="field">
+                    <lightning-output-field field-name={field.name} key ={field.name}>
+                    </lightning-output-field>
+                </template>
+                </div>
+        </lightning-record-view-form>
+    </lightning-card>
+    </template>
+    <!-- <div class="slds-p-around_medium lgc-bg">
+        <lightning-tile label={recordName} type="media">
+            <lightning-icon slot="media" icon-name="standard:groups"></lightning-icon>
+            <template for:each={recordFields} for:item="field">
+                <p class="slds-truncate" key={field.name}>{field.name}:&nbsp;&nbsp;{field.displayValue}</p>
+            </template>
+        </lightning-tile>
+    </div> -->
+</template>

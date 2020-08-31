@@ -1,0 +1,29 @@
+<aura:component implements="lightning:isUrlAddressable">
+    <aura:attribute name="recordId" type="String" />
+    <aura:attribute name="childObjectName" type="String" />
+    <aura:attribute name="objectApiName" type="String" />
+    <aura:attribute name="listTitle" type="String" />
+    <aura:attribute name="iconName" type="String" />
+    <aura:attribute name="query" type="String" />
+    <aura:attribute name="parentFieldName" type="String" />
+    <aura:attribute name="recordTypeId" type="String" />
+    <aura:attribute name="enableRowActions" type="Boolean" />
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}"/>
+
+    <lightning:card title="{!v.listTitle}" iconName="custom:custom30">    
+        Hello record id: {!v.recordId}
+        <div class="slds-card__body slds-card__body_inner">
+            <c:listigLista 
+                childObjectName="{v.childObjectName}"
+                objectApiName="{v.objectApiName}"
+                recordId="{!v.recordId}"
+                listTitle="{!v.listTitle}"
+                iconName="{!v.iconName}"
+                query="{!v.query}"
+                parentFieldName="{!v.parentFieldName}"
+                recordTypeId="{!v.recordTypeId}"
+                enableRowActions="{!v.enableRowActions}"
+            />
+    </div>
+    </lightning:card>
+</aura:component>	

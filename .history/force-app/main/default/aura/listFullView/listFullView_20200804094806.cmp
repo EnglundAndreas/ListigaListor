@@ -1,0 +1,14 @@
+<aura:component implements="lightning:isUrlAddressable">
+    <aura:attribute name="recordId" type="String" />
+    <aura:attribute name="childObjectName" type="String" />
+    <aura:attribute name="objectApiName" type="String" />
+
+<lightning:card title="View All List" iconName="custom:custom30">    
+    <div class="slds-card__body slds-card__body_inner">
+        <clistigLista 
+            objectName="{v."
+            recordId="{!v.recordId}"
+        />
+    </div>
+    </lightning-card>
+</aura:component>	
