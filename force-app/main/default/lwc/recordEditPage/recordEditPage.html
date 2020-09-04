@@ -10,40 +10,50 @@
                                 <span class="slds-assistive-text">Close</span>
                             </button>
                             <div slot="header">
-                                <h2 slot="header" id="modal-heading-01" class="slds-text-heading_medium slds-hyphenate">Header from parent component</h2>
+                                <h2 slot="header" id="modal-heading-01" class="slds-text-heading_medium slds-hyphenate">{header}</h2>
                             </div>
                         </header>
                         <div class="slds-modal__content slds-p-around_medium" id="modal-content-id-1" style="min-width: 1100px;">
-                            <lightning-record-edit-form
-                                object-api-name={objectApiName}>
-                                <template if:true={recordInfoDefined} for:each={recordInfo.fields} for:item="field">
-                                    <lightning-input-field
-                                        key={field.name}
-                                        field-name={field.name}
-                                        value={field.value}>
-                                    </lightning-input-field>
-                                </template>
-                            </lightning-record-edit-form>
-                            <!-- <lightning-record-form
-                                record-id={recordId}
-                                object-api-name={objectApiName}
-                                layout-type="Compact"
-                                columns="2"
-                                mode="edit"
-                                onsuccess={handleSuccess}
-                                onsubmit={handleSubmit}
-                                record-type-id={recordTypeId}>
-                                <lightning-input-field field-name="AccountId" value={parentId}></lightning-input-field>
-                            </lightning-record-form> -->
+                            <template if:true={fields}>
+                                <lightning-record-edit-form
+                                    record-id={recordId}
+                                    object-api-name={objectApiName}
+                                    record-type-id={recordTypeId}
+                                    onsuccess={handleSuccess} 
+                                    onsubmit={handleSubmit}>
+                                    <lightning-messages></lightning-messages>
+                                    <template for:each={fields} for:item="field">
+                                        <lightning-input-field
+                                            key={field.name}
+                                            field-name={field.name}
+                                            value={field.value}>
+                                        </lightning-input-field>
+                                    </template>
+                                    
+                                </lightning-record-edit-form>
+                            </template>
                         </div>
                         <footer class="slds-modal__footer" style="min-width: 1100px;">
-                            <template if:true={showNegative}>
-                                <button class="slds-button slds-button_neutral" onclick={handleNegative}>{negativeButtonLabel}</button>
+                            <lightning-button
+                                class="slds-m-top_small"
+                                name="cancel"
+                                onclick={handleClose}
+                                label="Cancel">
+                            </lightning-button>
+                            <lightning-button
+                                class="slds-m-top_small slds-m-left_small"
+                                variant="brand"
+                                onclick={handleSubmit}
+                                name="update"
+                                label="Update">
+                            </lightning-button>
+                        </footer>
+                            <!-- <template if:true={showNegative}>
+                                <button class="slds-button slds-button_neutral" onclick={handleClose}>{negativeButtonLabel}</button>
                             </template>
                             <template if:true={showPositive}>
-                                <button class="slds-button slds-button_brand" onclick={handlePositive}>{positiveButtonLabel}</button>
-                            </template>
-                        </footer>
+                                <button class="slds-button slds-button_brand" onclick={handleSubmit}>{positiveButtonLabel}</button>
+                            </template> -->
                     </div>
                 </section>
                 <div class="slds-backdrop slds-backdrop_open"></div>

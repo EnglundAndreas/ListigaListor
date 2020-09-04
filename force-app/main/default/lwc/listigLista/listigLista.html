@@ -1,10 +1,12 @@
 <template>
     <lightning-card icon-name={iconName}>
-
-        <lightning-button label="New" slot="actions" onclick={createNew}></lightning-button>
         <div slot="title">
+            <span class="slds-icon_container slds-avatar slds-m-right_x-small customIcon">
+                <img src={iconUrl} class={iconClass}></img>
+            </span>
             <a class="slds-card__header-link" href="javascript:void(0);" onclick={clickViewAll}>{listTitle} ({totalNumberOfRows})</a>
         </div>
+        <lightning-button label="New" slot="actions" onclick={createNew}></lightning-button>
         <div slot="footer">
             <template if:false={fullListView}>
                 <lightning-button label="View All" variant="Base" onclick={clickViewAll}></lightning-button>
@@ -44,14 +46,14 @@
                     <c-record-edit-page
                         show-modal={showModal}
                         show-positive=true
-                        positive-button-label='Save'
                         show-negative=true
-                        onpositive={closeModal}
-                        onclose={closeModal}
+                        onsubmit={handleSubmit}
+                        onclose={handleClose}
                         record-id={editRecordId}
                         record-info={editRecord}
                         record-type-id={recordTypeId}
                         object-api-name={childObjectName}
+                        columns={columns}
                     >
                     </c-record-edit-page>
                 </template>

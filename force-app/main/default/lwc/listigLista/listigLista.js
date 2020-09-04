@@ -12,31 +12,36 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
   @api objectApiName;
   @api recordId;
   @api listTitle;
-  @api iconName;
+  @api customIconName;
   @api query;
   @api parentFieldName;
   @api recordTypeId;
   @api enableRowActions;
   @api fullListView;
   @api showRowNumbers;
-  @api maxColumns;
+  @api maxColumns=99;
+  @api maxRows =99;
   @api columnLabels = ' ';
+  @api columnEditView = ' ';
 
-  @track data;
-  @track totalNumberOfRows = 0;
-  @track error;
-  @track columns = [];
-  @track draftValues = [];
-  @track urlTypeFields = [];
-  @track loading;
-  @track showViewAll;
-  @track loadMoreStatus;
-  @track tableLoading;
-  @track objectPluralLabel;
-  @track recordName;
-  @track showModal = false;
-  @track editRecordId;
-  @track editRecord;
+  data;
+  totalNumberOfRows = 0;
+  error;
+  columns = [];
+  draftValues = [];
+  urlTypeFields = [];
+  loading;
+  showViewAll;
+  loadMoreStatus;
+  tableLoading;
+  objectPluralLabel;
+  recordName;
+  showModal = false;
+  editRecordId;
+  editRecord;
+  iconClass;
+  iconUrl;
+  icon;
   wiredResult;
 
   connectedCallback() {
@@ -49,6 +54,7 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
     objectApiName: "$objectApiName",
     enableRowActions: "$enableRowActions",
     maxColumns: "$maxColumns",
+    maxRows: "$maxRows",
     columnLabels: '$columnLabels'
   })
   wireRecordsByQuery(result) {
@@ -56,7 +62,7 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
     console.log('inputs ', this.query, this.recordId, this.objectApiName, this.enableRowActions, this.maxColumns);
     if (result.data) {
       let tempList = [];
-      console.log('Hello ',result);
+      console.log('Hello data',result.data);
 
       this.wiredResult = result;
       this.data = result.data.rows;
@@ -68,9 +74,15 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
 
       this.columns = cols;
       this.totalNumberOfRows = this.data.length;
-      this.objectPluralLabel = result.data.objectPluralLabel;
+      this.objectPluralLabel = result.data.parentObjectPluralLabel;
+      if(!this.listTitle) {
+        this.listTitle = result.data.objectPluralLabel;
+      }
       this.childObjectName = result.data.objectApiName;
       this.recordName = result.data.recordName;
+      this.iconUrl = result.data.icon.iconURL;
+      this.iconClass = result.data.icon.iconStyle;
+      console.log('icon '+JSON.stringify(result.data.icon));
     } else if (result.error) {
       let error = result.error;
       let message = "Unknown error";
@@ -119,14 +131,15 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
   handleRowAction(event) {
     const actionName = event.detail.action.name;
     const row = event.detail.row;
-    console.log('<< rowAction2 ',actionName);
     console.log('<< row '+JSON.stringify(row));
     console.log(event);
     switch (actionName) {
     case 'edit':
+        console.log('edit clicked');
         this.editRecordId = row.Id;
+        this.editRecord = row;
         this.showModal = true;
-        //this.editRecord(row);
+        //this.editRecordFullView(row);
         break;
     case 'view':
         this.viewRecord(row);
@@ -179,7 +192,7 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
   }
 
 
-  editRecord(row) {
+  editRecordFullView(row) {
     console.log('Edit ',JSON.stringify(row));
     console.log('Id ',row.Id);
       this[NavigationMixin.Navigate]({
@@ -297,30 +310,39 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
 
     //listener handler to get the context and data
     //updates datatable
-  picklistChanged(event) {
-      event.stopPropagation();
-      let dataRecieved = event.detail.data;
-      let updatedItem = { Id: dataRecieved.context, Rating: dataRecieved.value };
-      this.updateDraftValues(updatedItem);
-      this.updateDataValues(updatedItem);
-  }
+  // picklistChanged(event) {
+  //     event.stopPropagation();
+  //     let dataRecieved = event.detail.data;
+  //     let updatedItem = { Id: dataRecieved.context, Rating: dataRecieved.value };
+  //     this.updateDraftValues(updatedItem);
+  //     this.updateDataValues(updatedItem);
+  // }
 
-  handleSelection(event) {
-    event.stopPropagation();
-    let dataRecieved = event.detail.data;
-    let updatedItem = { Id: dataRecieved.key, ParentId: dataRecieved.selectedId };
-    this.updateDraftValues(updatedItem);
-    this.updateDataValues(updatedItem);
-  }
-  handleCellChange(event) {
-    this.updateDraftValues(event.detail.draftValues[0]);
-  }
+  // handleSelection(event) {
+  //   event.stopPropagation();
+  //   let dataRecieved = event.detail.data;
+  //   let updatedItem = { Id: dataRecieved.key, ParentId: dataRecieved.selectedId };
+  //   this.updateDraftValues(updatedItem);
+  //   this.updateDataValues(updatedItem);
+  // }
+  // handleCellChange(event) {
+  //   this.updateDraftValues(event.detail.draftValues[0]);
+  // }
 
   handleCancel(event) {
     //remove draftValues & revert data changes
     //this.data = JSON.parse(JSON.stringify(this.lastSavedData));
     this.draftValues = [];
   }
+
+  handleClose(event) {
+   console.log('close Modal!');
+   this.showModal = false;
+  }
+  handleSubmit(event) {
+    console.log('form submitted!');
+    this.showModal = false;
+   }
 
   loadMoreData(event) {
     //Display a spinner to signal that data is being loaded

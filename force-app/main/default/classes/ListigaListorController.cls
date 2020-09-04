@@ -5,7 +5,7 @@ public with sharing class ListigaListorController {
     public String relatedObjSeparator = '_relobj_';
 
     @AuraEnabled(cacheable=true)
-    public static DataTable getRecordsByQuery(String query, String recordId, String objectApiName, Boolean enableRowActions, Integer maxColumns, String columnLabels){
+    public static DataTable getRecordsByQuery(String query, String recordId, String objectApiName, Boolean enableRowActions, Integer maxColumns, Integer maxRows, String columnLabels){
         String lastRowRecordId;
         List<String> rowActions = new List<String> {'Edit', 'View', 'Kill'};
         System.debug('this is query '+query);
@@ -18,20 +18,25 @@ public with sharing class ListigaListorController {
         if(!query.contains('ORDER BY')) {
             query += defaultSortOrder;
         }
-        List<String> fieldNames = getFieldsFromQuery(query);
-        query = addRelationNamesToQuery(query);
-        query += ' NULLS LAST LIMIT '+loadLimit;
-
-        List<SObject> records = Database.query( query );
-        System.debug('result from query '+records);
 
         String mainObjectName = getObjectName(query);
+        List<String> fieldNames = getFieldsFromQuery(query);
+        query = addRelationNamesToQuery(query, mainObjectName);
+        query += ' NULLS LAST';
+
+        List<SObject> records = Database.query( query );
+
+        System.debug('result from query '+records);
+
 
         DataTable dataTable = new DataTable();
         dataTable.objectApiName = mainObjectName;
-        dataTable.objectPluralLabel = getSObjectInfo(objectApiName).getLabelPlural();
+        dataTable.parentObjectPluralLabel = getSObjectInfo(objectApiName).getLabelPlural();
+        dataTable.objectPluralLabel = getSObjectInfo(mainObjectName).getLabelPlural();
         dataTable.recordName = String.valueOf(record.get('Name'));
-        dataTable.rows = getRows(records, fieldNames, mainObjectName);
+        dataTable.icon = retrieveIconForObject(mainObjectName);
+        dataTable.numberOfRows = records.size();
+        dataTable.rows = getRows(records, fieldNames, mainObjectName, maxRows);
         dataTable.columns = getColumns(fieldNames, rowActions, mainObjectName, enableRowActions, maxColumns, columnLabels);
         return dataTable;
     }
@@ -81,7 +86,7 @@ public with sharing class ListigaListorController {
                 Map<String, SObjectField> relObjFieldMap = getSObjectInfo(relObjname).fields.getMap();
                 fieldInfo = getFieldInfo(relObjFieldMap, relFieldName);
                 label = useCustomLabels ? columnLabelsList.get(counter-1) : fieldInfo.getLabel();
-                if(relFieldName.toLowerCase() == 'name') {
+                if(fieldInfo.getRelationshipName() != null) {
                    col = getRecordLinkColumn(field, label);
                 } else {
                     col.label = label;
@@ -90,7 +95,7 @@ public with sharing class ListigaListorController {
             } else {
                 fieldInfo = getFieldInfo(fieldInfoMap, field);
                 label = useCustomLabels ? columnLabelsList.get(counter-1) : fieldInfo.getLabel();
-                if(field.toLowerCase() == 'name') {
+                if(field.toLowerCase() == 'id' || fieldInfo.getRelationshipName() != null) {
                     col = getRecordLinkColumn(field, label);
                 } else {
                     col.label = label;
@@ -110,7 +115,7 @@ public with sharing class ListigaListorController {
             //     typeAttr.put('label', action);
             //     typeAttr.put('name', action.toLowerCase());
             // } Map<String,Object> typeAttr = new Map<String, Object>();
-    
+
             // if(rowActi<ons.size() == 1) {
             //     actionsCol.type = 'button-icon';
             //     typeAttr.put('label', rowActions[0]);
@@ -120,7 +125,6 @@ public with sharing class ListigaListorController {
                 actionsCol.type = 'action';
             //}
             actionsCol.typeAttributes = new TypeAttributes(rowActions);
-            actionsCol.type = 'action';
             //actionsCol.rowActions = typeAttr;
             columns.add(actionsCol);
         }
@@ -129,11 +133,13 @@ public with sharing class ListigaListorController {
     }
 
 
-    static List<Map<String, Object>> getRows(List<SObject> records, List<String> fieldNames, String mainObjectName) {
+    static List<Map<String, Object>> getRows(List<SObject> records, List<String> fieldNames, String mainObjectName, Integer maxRows) {
         List<Map<String, Object>> rows = new List<Map<String, Object>>();
         Map<String, SObjectField> fieldInfoMap = getSObjectInfo(mainObjectName).fields.getMap();
         Map<String, Schema.SObjectType> mapSObjects = Schema.getGlobalDescribe();
+        Integer rowCounter = 0;
         for(SObject record : records ) {
+            if(maxRows != null && rowCounter == maxRows) break;
             Map<String, Object> row = new Map<String, Object>();
             for(String fieldName : fieldNames) {
                 System.debug('new loop fieldname');
@@ -142,30 +148,44 @@ public with sharing class ListigaListorController {
                 String relObjname;
                 String relFieldName;
                 Object fieldValue;
+                DescribeFieldResult fieldInfo;
                 if(relationField) {
                     relObjname = fieldName.substring(0, fieldName.indexOf('.'));
                     relFieldName = fieldName.substring(fieldName.indexOf('.')+1);
                     SObject sObj = record.getSObject(relObjname);
                     System.debug('sObj '+sObj + ' rec '+ record + ' full field '+fieldName + ' rel FIeld '+relFieldName);
-                    if(sObj != null){
+                    if(sObj != null) {
                         fieldValue = sObj.get(relFieldName);
                         // Example: "Account.Id" Link to record with "Account.Name" as displayed value
-                        if(relFieldName.equalsIgnoreCase('name')) {
-                            row.put(fieldName+'Link', '/'+sObj.get('Id'));
-                            row.put(fieldName, fieldValue);
+                        fieldInfo = getFieldInfo(getSObjectInfo(relObjName).fields.getMap(), relFieldName);
+                        System.debug(' related relation names ' +fieldInfo.getRelationshipName());
+                        if(fieldInfo.getRelationshipName() != null) {
+                            row.put(fieldName+'Link', '/'+fieldValue);
+                            row.put(fieldName+'Label', sObj.get('Name'));
                         }
                     }
                 } else {
+                    fieldInfo = fieldInfoMap.get(fieldName).getDescribe();
                     fieldValue = record.get(fieldName);
-                    if(fieldName.equalsIgnoreCase('name')){
-                        row.put(fieldName+'Link', '/'+record.get('Id'));
-                        row.put(fieldName, fieldValue);
+                    String lookupName = fieldInfo.getRelationshipName();
+                    Boolean isLookupField = lookupName != null;
+                    if(fieldName.equalsIgnoreCase('id')) {
+                        row.put(fieldName+'Link', '/'+fieldValue);
+                        row.put(fieldName+'Label', record.get('Name'));
+                    } else if(isLookupField) {
+                        SObject sObj = record.getSObject(lookupName);
+                        if(sObj != null) {
+                            row.put(fieldName+'Link', '/'+fieldValue);
+                            row.put(fieldName+'Label', sObj.get('Name'));
+                        }
                     }
-                    row.put(fieldName, fieldValue);
                 }
+
+                row.put(fieldName, fieldValue);
             }
                 row.put('Id', record.Id);
             rows.add(row);
+            rowCounter++;
         }
 
         return rows;
@@ -173,20 +193,21 @@ public with sharing class ListigaListorController {
 
 
     static Column getRecordLinkColumn(String field, String columnLabel) {
+        System.debug('getRecordLinkColumn '+field + columnLabel);
         Column col = new Column();
         col.label = columnLabel;
-        col.fieldName = field+'Link';
+        col.fieldName = field;
         col.type = 'url';
         col.editable = false;
         col.sortable = true;
-        
+
         // Map<String,Object> typeAttr = new Map<String,Object>();
         // typeAttr.put('label', (Map<String,String>) new Map<String,String>{'fieldName' => field+'Label'});
         // typeAttr.put('value', (Map<String,String>) new Map<String,String>{'fieldName' => field+'Link'});
         // col.typeAttributes = typeAttr;
         TypeAttributes typeAttr = new TypeAttributes();
-        typeAttr.label = new Map<String,String>{'fieldName' => field};
-        typeAttr.value = new Map<String,String>{'fieldName' => field};
+        typeAttr.label = new Map<String,String>{'fieldName' => field+'Label'};
+        typeAttr.value = new Map<String,String>{'fieldName' => field+'Link'};
         col.typeAttributes = typeAttr;
         return col;
     }
@@ -199,18 +220,27 @@ public with sharing class ListigaListorController {
         return fields;
     }
 
-    static String addRelationNamesToQuery(String query) {
+    static String addRelationNamesToQuery(String query, String mainObjectName) {
         List<String> fields = new List<String>();
         String selectFields = query.substringBetween('SELECT', 'FROM');
         String newSelectFields = query.substringBetween('SELECT', 'FROM');
+        Map<String, SObjectField> fieldInfoMap = getSObjectInfo(mainObjectName).fields.getMap();
         for(String fieldName : selectFields.split(',')) {
+            fieldName = fieldName.trim();
+            DescribeFieldResult fieldInfo;
             if(fieldName.contains('.')) {
                 String relObjname = fieldName.substring(0, fieldName.indexOf('.'));
                 String relFieldName = fieldName.substring(fieldName.indexOf('.')+1);
-                String relObjNameRef = relObjname + '.Id';
-                if(relFieldName.equalsIgnoreCase('name') && !selectFields.contains(relObjNameRef)) {
-                    newSelectFields += ', '+relObjNameRef+' ';
-                }
+                fieldInfo = getFieldInfo(getSObjectInfo(relObjName).fields.getMap(), relFieldName);
+            } else {
+                fieldInfo = fieldInfoMap.get(fieldName).getDescribe();
+            }
+            String relObjName = fieldInfo.getRelationshipName();
+            if(relObjName != null && !newSelectFields.containsIgnoreCase(relObjName+'.Name')) {
+                newSelectFields += ', '+relObjName+'.Name ';
+            } 
+            if(!newSelectFields.containsIgnoreCase('Name')) {
+                newSelectFields +=', Name ';
             }
         }
         System.debug('<< addRelationNamesToQuery '+selectFields + ' replacing with '+newSelectFields);
@@ -256,6 +286,75 @@ public with sharing class ListigaListorController {
         String recordQuery = 'SELECT '+String.join(recordFields, ', ')+' FROM '+objectApiName+' WHERE Id = \''+recordId +'\' LIMIT 1';
         System.debug('record QUery '+recordQuery);
         return  Database.query(recordQuery);
+    }
+
+        /***
+     * Explores the schema of the soject passed in and finds lightning icon style and image url for sObject
+     * If nothing is found, defaults to the custom icon
+     *
+     * @param   sObjectTypeName       the sObject to find the icon for
+     * @return  Map<String,String>    Map of properties about the icon to be consumed by the front end.
+     *                                Right now, returns values for keys: iconStyle,iconURL
+     */
+    static Map<String,String> retrieveIconForObject(String sObjectName) {
+        String iconStyle;
+        String iconURL;
+        String iconTag;
+        Map<String, String> iconPropertyMap = new Map<String, String>();
+        List<Schema.DescribeTabSetResult> tabSetDesc = Schema.describeTabs();
+        List<Schema.DescribeTabResult> tabDesc = new List<Schema.DescribeTabResult>();
+        List<Schema.DescribeIconResult> iconDesc = new List<Schema.DescribeIconResult>();
+
+        for(Schema.DescribeTabSetResult tsr : tabSetDesc){
+        tabDesc.addAll(tsr.getTabs());
+        }
+        for(Schema.DescribeTabResult tr : tabDesc) {
+            if( sObjectName == tr.getSobjectName() ) {
+                system.debug(tr.getIcons());
+                if(!tr.getIcons().isEmpty()){
+                    iconDesc.addAll(tr.getIcons());
+                }else{
+                    if( tr.isCustom() == true ) {
+                        iconStyle = 'slds-icon-standard-custom';
+                        iconURL   = '/img/icon/t4v35/standard/custom_120.png';
+                    } else {
+                        iconStyle = 'slds-icon-standard-' + sObjectName.toLowerCase();
+                        iconURL   = '/img/icon/t4v35/standard/' + sObjectName.toLowerCase() + '_120.png';
+                    }
+                }
+            }
+        }
+        for (Schema.DescribeIconResult ir : iconDesc) {
+            if(ir.getTheme() =='custom' && !ir.getContentType().startsWith('image/svg')){//custom icon thats not an svg
+                iconTag   = 'custom';
+                iconURL   = ir.getURL();
+                iconStyle = 'slds-icon-standard-custom';
+                break;
+            }else if(ir.getWidth() == 120 && ir.getTheme() =='theme4' && ir.getContentType() == 'image/png'){//large lightning icon image
+                if(ir.getURL().contains('/custom/')){ //Icon is from the Custom Sprite
+                    iconTag    = ir.getURL().substringBetween('custom/','.png').substringBefore('_');
+                    iconURL    = '/img/icon/t4v35/custom/' + iconTag + '_120.png';
+                    iconStyle  = 'slds-icon-custom-'+ iconTag;
+                    break;
+                }else if(ir.getURL().contains('/standard/')){//Icon is from the Standard Sprite
+                    iconTag    = ir.getURL().substringBetween('standard/','.png').substringBefore('_');
+                    iconURL    = '/img/icon/t4v35/standard/' + iconTag + '_120.png';
+                    iconStyle  = 'slds-icon-standard-'+ iconTag;
+                    break;
+                }
+            }
+        }
+        //if no icons are found, just default to the Custom lightning icon
+        if(iconStyle == null){
+            iconStyle = 'slds-icon_small slds-icon-standard-custom';
+            iconURL   = '/img/icon/t4v35/standard/custom_120.png';
+            iconTag   = 'No Lightning Icon Found';
+        }
+        //return a map with our properties for the front end
+        iconPropertyMap.put('iconStyle',iconStyle);
+        iconPropertyMap.put('iconURL',  iconURL);
+
+        return iconPropertyMap;
     }
 
     @AuraEnabled
@@ -331,8 +430,8 @@ public with sharing class ListigaListorController {
         if(o instanceof String)             return 'String';
         if(o instanceof Blob)               return 'Blob';
         if(o instanceof Date)               return 'Date';
-        if(o instanceof Datetime)           return 'Datetime';
         if(o instanceof Time)               return 'Time';
+        if(o instanceof Datetime)           return 'Datetime';
         if(o instanceof String)             return 'String';
         if(o instanceof Integer)            return 'Integer';
         if(o instanceof Long)               return 'Long';
@@ -368,9 +467,12 @@ public with sharing class ListigaListorController {
     public class DataTable {
         @AuraEnabled public List<Map<String, Object>> rows;
         @AuraEnabled public List<Column> columns;
+        @AuraEnabled public String parentObjectPluralLabel;
         @AuraEnabled public String objectPluralLabel;
         @AuraEnabled public String objectApiName;
         @AuraEnabled public String recordName;
+        @AuraEnabled public Integer numberOfRows;
+        @AuraEnabled public Map<String, String> icon;
     }
 
     public class Column {
