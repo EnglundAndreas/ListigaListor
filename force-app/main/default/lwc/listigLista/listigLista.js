@@ -14,15 +14,17 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
   @api listTitle;
   @api customIconName;
   @api query;
-  @api parentFieldName;
   @api recordTypeId;
-  @api enableRowActions;
-  @api fullListView;
-  @api showRowNumbers;
+  @api rowActions;
+  @api fullListView = false;
+  @api showRowNumbers = false;
   @api maxColumns=99;
   @api maxRows =99;
   @api columnLabels = ' ';
-  @api columnEditView = ' ';
+  @api limitedEditForm;
+  @api limitedNewForm;
+  @api sortBy;
+  @api sortDirection;
 
   data;
   totalNumberOfRows = 0;
@@ -31,35 +33,34 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
   draftValues = [];
   urlTypeFields = [];
   loading;
-  showViewAll;
   loadMoreStatus;
-  tableLoading;
+  loadingData;
+  showSpinner = true;
   objectPluralLabel;
   recordName;
   showModal = false;
   editRecordId;
-  editRecord;
   iconClass;
   iconUrl;
   icon;
   wiredResult;
-
-  connectedCallback() {
-    console.log('child comp instantiated');
-  }
+  showDeleteDialog = false;
+  parentFieldName;
+  get dataTableStyle() {
+    return this.fullListView ? "height: 500px": "";
+  } 
 
   @wire(getRecordsByQuery, {
-    query: "$query",
+    query: "$query", 
     recordId: "$recordId",
     objectApiName: "$objectApiName",
-    enableRowActions: "$enableRowActions",
+    rowActions: "$rowActions",
     maxColumns: "$maxColumns",
     maxRows: "$maxRows",
-    columnLabels: '$columnLabels'
+    columnLabels: '$columnLabels',
+    fullView: "$fullListView"
   })
   wireRecordsByQuery(result) {
-    console.log('records by query ', JSON.stringify(result));
-    console.log('inputs ', this.query, this.recordId, this.objectApiName, this.enableRowActions, this.maxColumns);
     if (result.data) {
       let tempList = [];
       console.log('Hello data',result.data);
@@ -68,21 +69,18 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
       this.data = result.data.rows;
       console.log('<< ROWS <<');
       console.log(result.data.rows);
-      let columns = result.data.columns;
-      let jsonColumns = JSON.stringify(columns).replace('objectX', 'object');
-      let cols = JSON.parse(jsonColumns);
 
-      this.columns = cols;
-      this.totalNumberOfRows = this.data.length;
-      this.objectPluralLabel = result.data.parentObjectPluralLabel;
+      this.columns = result.data.columns;
+      this.parentFieldName = result.data.parentFieldName;
+      this.objectPluralLabel = result.data.objectPluralLabel;
+      this.totalNumberOfRows = result.data.numberOfRows;
       if(!this.listTitle) {
-        this.listTitle = result.data.objectPluralLabel;
+        this.listTitle = result.data.objectPluralLabel + ' ('+this.totalNumberOfRows+')';
       }
       this.childObjectName = result.data.objectApiName;
       this.recordName = result.data.recordName;
       this.iconUrl = result.data.icon.iconURL;
       this.iconClass = result.data.icon.iconStyle;
-      console.log('icon '+JSON.stringify(result.data.icon));
     } else if (result.error) {
       let error = result.error;
       let message = "Unknown error";
@@ -100,6 +98,7 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
         })
       );
     }
+    this.showSpinner = false;
   }
 
   handleSave(event) {
@@ -109,8 +108,7 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
       sObjList: this.data,
       updateObjStr: draftValuesStr,
       objectName: this.childObjectName,
-    })
-      .then((result) => {
+    }).then((result) => {
         this.dispatchEvent(
           new ShowToastEvent({
             title: "Success",
@@ -124,36 +122,38 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
       })
       .catch((error) => {
         console.log("-------error-------------" + JSON.stringify(error));
-        console.log(error);
       });
   }
 
   handleRowAction(event) {
     const actionName = event.detail.action.name;
     const row = event.detail.row;
-    console.log('<< row '+JSON.stringify(row));
-    console.log(event);
     switch (actionName) {
     case 'edit':
-        console.log('edit clicked');
+      if(this.limitedEditForm) {
         this.editRecordId = row.Id;
-        this.editRecord = row;
         this.showModal = true;
-        //this.editRecordFullView(row);
-        break;
+      } else {
+        this.editRecordFullView(row);
+      }
+      break;
     case 'view':
-        this.viewRecord(row);
-        break;
+      this.viewRecord(row);
+      break;
     case 'delete':
-        this.deleteRecord(row);
-        break;
+      this.originalMessage = row;
+      this.showDeleteDialog = true;
+      //this.deleteRecord(row);
+      break;
     default:
-        this.viewRecord(row);
-        break;
+      this.viewRecord(row);
+      break;
     }
   }
 
-  deleteRecord(row) {
+  handleDelete(event) {
+    if(event.detail.status === 'confirm') {
+      let row = event.detail.originalMessage;
       deleteRecord(row.Id).then(() => {
         let message = 'Record deleted';
         if(row.Name){
@@ -167,16 +167,17 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
             })
         );
         return refreshApex(this.wiredResult);
-    }).catch(error => {
-      console.log('error ',error);
-        this.dispatchEvent(
-            new ShowToastEvent({
-                title: 'Error deleting record',
-                message: error.body.message,
-                variant: 'error'
-            })
-        );
-    });
+      }).catch(error => {
+          this.dispatchEvent(
+              new ShowToastEvent({
+                  title: 'Error deleting record',
+                  message: error.body.message,
+                  variant: 'error'
+              })
+          );
+      });
+    }
+    this.showDeleteDialog = false;
   }
 
   findRowIndexById(Id) {
@@ -223,29 +224,59 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
   createNew() {
     let defaultFieldValues = '';
     this.loading = true;
-    if(this.parentFieldName !== null) {
-      defaultFieldValues = this.parentFieldName +"="+this.recordId;
-    }
-
-    this[NavigationMixin.Navigate]({
-      type: 'standard__objectPage',
-      attributes: {
-        objectApiName: 'Contact',
-        actionName: 'new'
-      },
-      state : {
-          nooverride: '1',
-          defaultFieldValues: defaultFieldValues,
-          navigationLocation: 'RELATED_LIST',
-          recordTypeId: this.recordTypeId
+    if(this.limitedNewForm) { // Custom Limited View
+      this.editRecordId = null;
+      this.showModal = true;
+    } else { // Standard Full View
+      if(this.parentFieldName !== null) {
+        defaultFieldValues = this.parentFieldName +"="+this.recordId;
       }
-    }).then(result => {
-      console.log(result);
-      return refreshApex(this.wiredResult);
+      this[NavigationMixin.Navigate]({
+        type: 'standard__objectPage',
+        attributes: {
+          objectApiName: this.childObjectName,
+          actionName: 'new'
+        },
+        state : {
+            nooverride: '1',
+            defaultFieldValues: defaultFieldValues,
+            navigationLocation: 'RELATED_LIST',
+            recordTypeId: this.recordTypeId
+        }
+      }).then(result => {
+        console.log(result);
+        return refreshApex(this.wiredResult);
 
-    }).catch(error => {
-      console.log(error);
-    });
+      }).catch(error => {
+        this.error = error;
+        console.error(error);
+      });
+    }
+  }
+
+  updateColumnSorting(event) {
+    let fieldName = event.detail.fieldName;
+    let sortDirection = event.detail.sortDirection;
+    this.sortBy = fieldName;
+    this.sortDirection = sortDirection;
+    this.sortData(fieldName, sortDirection);
+  }
+
+   sortData(fieldName, direction) {
+      let parseData = JSON.parse(JSON.stringify(this.data));
+      let keyValue = (a) => {
+          return a[fieldName];
+      };
+      let isReverse = direction === 'asc' ? 1: -1;
+
+      parseData.sort((x, y) => {
+          x = keyValue(x) ? keyValue(x) : ''; // handling null values
+          y = keyValue(y) ? keyValue(y) : '';
+
+          return isReverse * ((x > y) - (y > x));
+      });
+
+      this.data = parseData;
   }
 
   clickViewAll() {
@@ -263,9 +294,12 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
         c__iconName: this.iconName,
         c__query: this.query,
         c__parentFieldName: this.parentFieldName,
-        c__enableRowActions: this.enableRowActions,
+        c__rowActions: this.rowActions,
         c__objectPluralLabel: this.objectPluralLabel,
         c__recordName: this.recordName,
+        c__columnLabels: this.columnLabels,
+        c__limitedNewForm: this.limitedNewForm,
+        c__limitedEditForm: this.limitedEditForm
       }
     });
 
@@ -273,6 +307,7 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
 
 
   updateDataValues(updateItem) {
+    console.log('update Data Values ',updateItem);
     let copyData = [... this.data];
     copyData.forEach(item => {
         if (item.Id === updateItem.Id) {
@@ -308,40 +343,20 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
       }
   }
 
-    //listener handler to get the context and data
-    //updates datatable
-  // picklistChanged(event) {
-  //     event.stopPropagation();
-  //     let dataRecieved = event.detail.data;
-  //     let updatedItem = { Id: dataRecieved.context, Rating: dataRecieved.value };
-  //     this.updateDraftValues(updatedItem);
-  //     this.updateDataValues(updatedItem);
-  // }
-
-  // handleSelection(event) {
-  //   event.stopPropagation();
-  //   let dataRecieved = event.detail.data;
-  //   let updatedItem = { Id: dataRecieved.key, ParentId: dataRecieved.selectedId };
-  //   this.updateDraftValues(updatedItem);
-  //   this.updateDataValues(updatedItem);
-  // }
-  // handleCellChange(event) {
-  //   this.updateDraftValues(event.detail.draftValues[0]);
-  // }
-
   handleCancel(event) {
     //remove draftValues & revert data changes
     //this.data = JSON.parse(JSON.stringify(this.lastSavedData));
     this.draftValues = [];
   }
 
-  handleClose(event) {
-   console.log('close Modal!');
+  handleModalClose(event) {
    this.showModal = false;
   }
-  handleSubmit(event) {
-    console.log('form submitted!');
+
+  handleModalSuccess(event) {
     this.showModal = false;
+    console.log('i guess success?');
+    return refreshApex(this.wiredResult);
    }
 
   loadMoreData(event) {
@@ -349,34 +364,36 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
     //event.target.isLoading = true;
     //Display "Loading" when more data is being loaded
     console.log('<< loadMoreData');
-    this.loadMoreStatus = 'Loading';
     const currentData = this.data;
     const lastRecId = currentData[currentData.length - 1].Id;
-
-    getRecordsByQuery({ query: this.query, recordId: this.recordId, objectApiName: this.objectApiName})
-      .then(result => {
-        //Appends new data to the end of the table
-        const newData = currentData.concat(result);
-        this.data = newData;
-        if (this.data.length >= this.totalNumberOfRows) {
-            this.loadMoreStatus = 'No more data to load';
-        } else {
-            this.loadMoreStatus = '';
-        }
-        this.tableLoading = false;
-      //  event.target.isLoading = false;
-    })
-    .catch(error => {
-        console.log('-------error-------------'+error);
-        console.log(error);
-    });
+    if(currentData.length < this.totalNumberOfRows && this.fullListView) {
+      console.log('Oh yeah')
+      this.loadingData = true;
+      getRecordsByQuery({
+        query: this.query, 
+        recordId: this.recordId, 
+        objectApiName: this.objectApiName,
+        rowActions: this.rowActions,
+        columnLabels: this.columnLabels,
+        fullView: this.fullListView,
+        lastRowRecordId: lastRecId})
+        .then(result => {
+          const loadedData = result.rows;
+          //Appends new data to the end of the table
+          console.log(this.data);
+          console.log(this.data.length);
+          console.log(this.totalNumberOfRows);
+          const newData = currentData + loadedData;
+          this.data = newData;
+      })
+      .catch(error => {
+          console.log('-------error-------------',error);
+          console.log(error);
+      });
+    }
+    this.loadingData = false;
+    console.log('lastRecId ', lastRecId);
+   
   }
 
 }
-
-const getSelectFields = (queryInp) => {
-  let pattern = /\$record\.([\w]+)/g;
-  console.log("query " + this.query);
-  let fields = [...queryInp.matchAll(pattern)].map((e) => e[1]).join(", ");
-  return fields;
-};

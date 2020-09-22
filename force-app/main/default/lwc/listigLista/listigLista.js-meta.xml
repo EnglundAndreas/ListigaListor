@@ -8,14 +8,16 @@
     <targetConfigs>
         <targetConfig targets="lightning__RecordPage">
             <property name="listTitle" type="String" label="Title" description="Enter the title of the list"/>
-            <property name="parentFieldName" type="String" label="Parent Field API Name" description="Enter the parent field API Name"/>
-            <property name="recordTypeId" type="String" label="Default RecordType Id" description="Enter the default Record Type Id for new records"/>
-            <property name="query" type="String" label="SOQL Query" description="Enter the  query"/>
+            <property name="query" type="String" label="SOQL Query" description="Standard SOQL query, SELECT fields will be added as columns. Supports WHERE filters and references to current parent object by using '$record.FIELDNAME'. For example WHERE Id = $record.Id"/>
             <property name="columnLabels" type="String" label="Custom Column Labels" placeholder="Name, Account, Phone, Email" description="If you don't want standard column fields labels, enter labels for every field, separated by comma."/>
-            <property name="enableRowActions" type="Boolean" label="Show Row Actions" default="true" description="If row actions should be displayed standard View"/>
+            <property name="rowActions" type="String" label="Row Actions" default="View, Edit, Delete" placeholder="View, Edit, Delete" description="Enter row actions separated by comma, standard ones are View, Edit and Delete"/>
             <property name="maxColumns" type="Integer" label="Max Columns" default="4" description="Max amount of columns displayed when not viewing all"/>
             <property name="maxRows" type="Integer" label="Max Rows" default="5" description="Max amount of rows displayed when not viewing all. It's recommended to use a lower number to reduce loading time"/>
             <property name="customIconName" type="String" label="Custom Icon" placeholder="custom:65" description="Enter the name of the icon. List of availble icons: https://www.lightningdesignsystem.com/icons/"/>
+            <property name="showRowNumbers" type="Boolean" label="Show Row Numbers" description="Select this checkbox if you want to display row numbers"/>
+            <property name="limitedEditForm" type="Boolean" label="Limited Edit Form" description="Select this checkbox if you want limited edit form view to the fields you select or full standard view"/>
+            <property name="limitedNewForm" type="Boolean" label="Limtied New Form" description="Select this checkbox if you want limited new form view to the fields you select or full standard view"/>
+            <property name="recordTypeId" type="String" label="Default New RecordType Id" description="Enter the default Record Type Id for new records"/>
         </targetConfig>
     </targetConfigs>
 </LightningComponentBundle>

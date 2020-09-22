@@ -4,43 +4,67 @@ public with sharing class ListigaListorController {
     @AuraEnabled
     public String relatedObjSeparator = '_relobj_';
 
+    // public static DataTable getRecordsByQuery(  String query,
+    // String recordId,
+    // String objectApiName,
+    // String rowActions,
+    // Integer maxColumns,
+    // Integer maxRows,
+    // String columnLabels) {
     @AuraEnabled(cacheable=true)
-    public static DataTable getRecordsByQuery(String query, String recordId, String objectApiName, Boolean enableRowActions, Integer maxColumns, Integer maxRows, String columnLabels){
-        String lastRowRecordId;
-        List<String> rowActions = new List<String> {'Edit', 'View', 'Kill'};
+     public static DataTable getRecordsByQuery(
+        String query,
+        String recordId,
+        String objectApiName,
+        String rowActions,
+        Integer maxColumns,
+        Integer maxRows,
+        String columnLabels,
+        String lastRowRecordId,
+        Boolean fullView
+    ) {
         System.debug('this is query '+query);
+        System.debug('last Row RecId'+lastRowRecordId);
+        String parentFieldName = getParentFieldName(query);
         SObject record = getMainRecord(query, recordId, objectApiName);
         query = setQuerySelectRecordFields(record, query);
 
         if(String.isNotBlank(lastRowRecordId)) {
             query = setQueryLastRowRecordId(query, lastRowRecordId);
         }
+        if(fullView) {
+            maxRows = 10;
+        }
         if(!query.contains('ORDER BY')) {
             query += defaultSortOrder;
         }
 
         String mainObjectName = getObjectName(query);
+        System.debug('<< mainObjectInfo '+mainObjectName );
         List<String> fieldNames = getFieldsFromQuery(query);
-        query = addRelationNamesToQuery(query, mainObjectName);
+        DescribeSObjectResult mainObjInfo = getSObjectInfo(mainObjectName);
+        Map<String, DescribeFieldResult> fieldInfoMap = getFieldInfoMap(fieldNames, mainObjInfo);
+        query = addRelationNamesToQuery(query, fieldInfoMap);
         query += ' NULLS LAST';
-
+        System.debug('transformed query'+ query);
         List<SObject> records = Database.query( query );
 
         System.debug('result from query '+records);
 
-
         DataTable dataTable = new DataTable();
         dataTable.objectApiName = mainObjectName;
         dataTable.parentObjectPluralLabel = getSObjectInfo(objectApiName).getLabelPlural();
-        dataTable.objectPluralLabel = getSObjectInfo(mainObjectName).getLabelPlural();
-        dataTable.recordName = String.valueOf(record.get('Name'));
-        dataTable.icon = retrieveIconForObject(mainObjectName);
+        dataTable.objectPluralLabel = mainObjInfo.getLabelPlural();
+        dataTable.recordName = record != null ? String.valueOf(record.get('Name')) : null;
+        dataTable.parentFieldName = parentFieldName;
+        dataTable.icon = getIconForObject(mainObjectName);
         dataTable.numberOfRows = records.size();
-        dataTable.rows = getRows(records, fieldNames, mainObjectName, maxRows);
-        dataTable.columns = getColumns(fieldNames, rowActions, mainObjectName, enableRowActions, maxColumns, columnLabels);
+        dataTable.rows = getRows(records, fieldInfoMap, maxRows);
+        System.debug('<< ROWS count '+dataTable.rows.size());
+        dataTable.columns = getColumns(fieldInfoMap, rowActions, maxColumns, columnLabels);
         return dataTable;
     }
-
+    
     static DescribeFieldResult getFieldInfo(Map<String, SObjectField> objectFieldMap, String fieldName) {
        return objectFieldMap.get(fieldName).getDescribe();
     }
@@ -50,32 +74,31 @@ public with sharing class ListigaListorController {
         return Schema.getGlobalDescribe().get(objectName).getDescribe();
     }
 
+
     static String getObjectName(String query) {
         if(query.contains('WHERE')) {
             return query.substringBetween('FROM ', ' WHERE').trim();
         }
-        return query.substringBetween('FROM ', ' ').trim();
+        return query.substringAfter('FROM ').substringBefore(' ').trim();
     }
 
-    static List<Column> getColumns(List<String> fieldNames, List<String> rowActions, String mainObjectName, Boolean enableRowActions, Integer maxColumns, String columnLabels) {
-        System.debug('<< getColumns START');
+    static List<Column> getColumns(Map<String, DescribeFieldResult> fieldInfoMap, String rowActions, Integer maxColumns, String columnLabels) {
         List<Column> columns = new List<Column>();
-        Map<String, SObjectField> fieldInfoMap = getSObjectInfo(mainObjectName).fields.getMap();
         List<String> columnLabelsList = new List<String>();
         Boolean useCustomLabels = false;
         if(String.isNotBlank(columnLabels)) {
-            columnLabelsList = columnLabels.split(',');
-            if(columnLabelsList.size() != fieldNames.size()) {
+            columnLabelsList = columnLabels.trim().split(',');
+            if(columnLabelsList.size() != fieldInfoMap.keySet().size()) {
                 throw new InvalidInputException('Please enter an equal amount of custom column labels as fields');
             }
             useCustomLabels = true;
         }
         Integer counter = 1;
-        for(String field : fieldNames) {
+        for(String field : fieldInfoMap.keySet()) {
             if(maxColumns != null && counter == maxColumns) break;
             Column col = new Column();
             String label;
-            DescribeFieldResult fieldInfo;
+            DescribeFieldResult fieldInfo = fieldInfoMap.get(field);
             Boolean relationField = field.contains('.');
             if(relationField) {
                 String relObjname = field.substring(0, field.indexOf('.'));
@@ -83,8 +106,6 @@ public with sharing class ListigaListorController {
                 if(relObjname.contains('__r')) {
                     relObjname = relObjname.replace('__r', '__c');
                 }
-                Map<String, SObjectField> relObjFieldMap = getSObjectInfo(relObjname).fields.getMap();
-                fieldInfo = getFieldInfo(relObjFieldMap, relFieldName);
                 label = useCustomLabels ? columnLabelsList.get(counter-1) : fieldInfo.getLabel();
                 if(fieldInfo.getRelationshipName() != null) {
                    col = getRecordLinkColumn(field, label);
@@ -93,7 +114,6 @@ public with sharing class ListigaListorController {
                     col.fieldName = field;
                 }
             } else {
-                fieldInfo = getFieldInfo(fieldInfoMap, field);
                 label = useCustomLabels ? columnLabelsList.get(counter-1) : fieldInfo.getLabel();
                 if(field.toLowerCase() == 'id' || fieldInfo.getRelationshipName() != null) {
                     col = getRecordLinkColumn(field, label);
@@ -108,8 +128,9 @@ public with sharing class ListigaListorController {
             columns.add(col);
             counter ++;
         }
-        if(enableRowActions) {
+        if(String.isNotBlank(rowActions)) {
             Column actionsCol = new Column();
+            // Det här är påbörjad kod för en knapp istället för dropdown actions
             //TypeAttributes typeAttr = new TypeAtt<ributes(rowActions);
                    // for(String action : rowActions) {
             //     typeAttr.put('label', action);
@@ -132,24 +153,18 @@ public with sharing class ListigaListorController {
         return columns;
     }
 
-
-    static List<Map<String, Object>> getRows(List<SObject> records, List<String> fieldNames, String mainObjectName, Integer maxRows) {
+    static List<Map<String, Object>> getRows(List<SObject> records, Map<String, DescribeFieldResult> fieldInfoMap, Integer maxRows) {
         List<Map<String, Object>> rows = new List<Map<String, Object>>();
-        Map<String, SObjectField> fieldInfoMap = getSObjectInfo(mainObjectName).fields.getMap();
-        Map<String, Schema.SObjectType> mapSObjects = Schema.getGlobalDescribe();
         Integer rowCounter = 0;
         for(SObject record : records ) {
             if(maxRows != null && rowCounter == maxRows) break;
             Map<String, Object> row = new Map<String, Object>();
-            for(String fieldName : fieldNames) {
-                System.debug('new loop fieldname');
-                Boolean relationField = fieldName.contains('.');
-                Boolean editable = !relationField;
+            for(String fieldName : fieldInfoMap.keySet()) {
                 String relObjname;
                 String relFieldName;
                 Object fieldValue;
-                DescribeFieldResult fieldInfo;
-                if(relationField) {
+                DescribeFieldResult fieldInfo = fieldInfoMap.get(fieldName);
+                if(fieldName.contains('.')) { // Relation field
                     relObjname = fieldName.substring(0, fieldName.indexOf('.'));
                     relFieldName = fieldName.substring(fieldName.indexOf('.')+1);
                     SObject sObj = record.getSObject(relObjname);
@@ -157,54 +172,85 @@ public with sharing class ListigaListorController {
                     if(sObj != null) {
                         fieldValue = sObj.get(relFieldName);
                         // Example: "Account.Id" Link to record with "Account.Name" as displayed value
-                        fieldInfo = getFieldInfo(getSObjectInfo(relObjName).fields.getMap(), relFieldName);
-                        System.debug(' related relation names ' +fieldInfo.getRelationshipName());
                         if(fieldInfo.getRelationshipName() != null) {
-                            row.put(fieldName+'Link', '/'+fieldValue);
-                            row.put(fieldName+'Label', sObj.get('Name'));
+                            setLinkRow(row, sObj, fieldName, fieldValue);
                         }
                     }
-                } else {
-                    fieldInfo = fieldInfoMap.get(fieldName).getDescribe();
+                } else { // Regular field on main object
                     fieldValue = record.get(fieldName);
                     String lookupName = fieldInfo.getRelationshipName();
                     Boolean isLookupField = lookupName != null;
                     if(fieldName.equalsIgnoreCase('id')) {
-                        row.put(fieldName+'Link', '/'+fieldValue);
-                        row.put(fieldName+'Label', record.get('Name'));
+                        setLinkRow(row, record, fieldName, fieldValue);
                     } else if(isLookupField) {
                         SObject sObj = record.getSObject(lookupName);
                         if(sObj != null) {
-                            row.put(fieldName+'Link', '/'+fieldValue);
-                            row.put(fieldName+'Label', sObj.get('Name'));
+                            setLinkRow(row, sObj, fieldName, fieldValue);
                         }
                     }
                 }
-
                 row.put(fieldName, fieldValue);
             }
-                row.put('Id', record.Id);
+            row.put('Id', record.Id);
+            row.put('Name', record.get('Name'));
             rows.add(row);
             rowCounter++;
         }
-
         return rows;
+    }
+
+    static void setLinkRow(Map<String, Object> row, SObject record, String fieldName, Object fieldValue) {
+        row.put(fieldName+'Link', '/'+fieldValue);
+        row.put(fieldName+'Label', record.get('Name'));
+    }
+
+    // Returns map with field information for every given field as in query (Account.Type gets mapped to field info for Type on Account)
+    static Map<String, DescribeFieldResult> getFieldInfoMap(List<String> fieldNames, DescribeSObjectResult mainObjectInfo) {
+        Map<String, DescribeFieldResult> fieldInfoMap = new Map<String,DescribeFieldResult> ();
+        Map<String, SObjectField> mainObjectfieldMap = mainObjectInfo.fields.getMap();
+        Map<String, Map<String, SObjectField>> relObjectFieldsMap = new Map<String, Map<String, SObjectField>>();
+        Set<String> relatedObjectNames = new Set<String>();
+        for(String fieldName : fieldNames) {
+            if(fieldName.contains('.')){
+                String relObjname = fieldName.substring(0, fieldName.indexOf('.'));
+                if(!relatedObjectNames.contains(relObjName)) {
+                    relatedObjectNames.add(relObjName);
+                }
+            }
+        }
+        for(String relObjName : relatedObjectNames) {
+            relObjectFieldsMap.put(relObjName, getSObjectInfo(relObjName).fields.getMap());
+        }
+        for(String fieldName : fieldNames) {
+            DescribeFieldResult fieldInfo;
+            if(fieldName.contains('.')){
+                String relObjname = fieldName.substring(0, fieldName.indexOf('.'));
+                String relFieldName = getRelationFieldRecursive(fieldName);
+                fieldInfo = relObjectFieldsMap.get(relObjName).get(relFieldName).getDescribe();
+            } else {
+                fieldInfo = mainObjectfieldMap.get(fieldName).getDescribe();
+            }
+            fieldInfoMap.put(fieldName, fieldInfo);
+        }
+        return fieldInfoMap;
+    }
+
+    static String getRelationFieldRecursive(String fieldName) {
+        if(fieldName.contains('.')) {
+            fieldName = getRelationFieldRecursive(fieldName.substring(fieldName.indexOf('.')+1));
+        }
+        return fieldName;
     }
 
 
     static Column getRecordLinkColumn(String field, String columnLabel) {
-        System.debug('getRecordLinkColumn '+field + columnLabel);
         Column col = new Column();
         col.label = columnLabel;
         col.fieldName = field;
         col.type = 'url';
         col.editable = false;
-        col.sortable = true;
+        col.sortable = false;
 
-        // Map<String,Object> typeAttr = new Map<String,Object>();
-        // typeAttr.put('label', (Map<String,String>) new Map<String,String>{'fieldName' => field+'Label'});
-        // typeAttr.put('value', (Map<String,String>) new Map<String,String>{'fieldName' => field+'Link'});
-        // col.typeAttributes = typeAttr;
         TypeAttributes typeAttr = new TypeAttributes();
         typeAttr.label = new Map<String,String>{'fieldName' => field+'Label'};
         typeAttr.value = new Map<String,String>{'fieldName' => field+'Link'};
@@ -220,72 +266,77 @@ public with sharing class ListigaListorController {
         return fields;
     }
 
-    static String addRelationNamesToQuery(String query, String mainObjectName) {
+    static String addRelationNamesToQuery(String query, Map<String, DescribeFieldResult> fieldInfoMap) {
         List<String> fields = new List<String>();
-        String selectFields = query.substringBetween('SELECT', 'FROM');
-        String newSelectFields = query.substringBetween('SELECT', 'FROM');
-        Map<String, SObjectField> fieldInfoMap = getSObjectInfo(mainObjectName).fields.getMap();
+        String selectFields = query.substringBetween('SELECT', 'FROM').trim();
+        String newSelectFields = selectFields;
         for(String fieldName : selectFields.split(',')) {
             fieldName = fieldName.trim();
-            DescribeFieldResult fieldInfo;
+            DescribeFieldResult fieldInfo = fieldInfoMap.get(fieldName);
             if(fieldName.contains('.')) {
                 String relObjname = fieldName.substring(0, fieldName.indexOf('.'));
                 String relFieldName = fieldName.substring(fieldName.indexOf('.')+1);
-                fieldInfo = getFieldInfo(getSObjectInfo(relObjName).fields.getMap(), relFieldName);
-            } else {
-                fieldInfo = fieldInfoMap.get(fieldName).getDescribe();
             }
             String relObjName = fieldInfo.getRelationshipName();
             if(relObjName != null && !newSelectFields.containsIgnoreCase(relObjName+'.Name')) {
                 newSelectFields += ', '+relObjName+'.Name ';
-            } 
-            if(!newSelectFields.containsIgnoreCase('Name')) {
-                newSelectFields +=', Name ';
             }
         }
-        System.debug('<< addRelationNamesToQuery '+selectFields + ' replacing with '+newSelectFields);
+        Boolean firstFieldIsNotName = newSelectFields.substringBefore(',').trim() != 'Name' && newSelectFields !='Name';
+        if(!newSelectFields.containsIgnoreCase(' Name') && firstFieldIsNotName) {
+            newSelectFields +=', Name ';
+        }
         query = query.replace(selectFields, newSelectFields);
         return query;
     }
 
     static String setQueryLastRowRecordId(String query, String lastRowRecordId) {
-
         if(!query.contains('WHERE')) {
-            query += ' WHERE Id > ';
+            query += ' WHERE Id > :lastRowRecordId';
         } else {
-            query += ' AND Id > ';
+            query += ' AND Id > :lastRowRecordId';
         }
-        query += lastRowRecordId;
+        //query += lastRowRecordId;
         return query;
     }
 
     static String setQuerySelectRecordFields(SObject record, String query) {
-        Map<String, Object> recordFieldMap = record.getPopulatedFieldsAsMap();
-        for(String fieldName : recordFieldMap.keySet()){
-            Object fieldValue = recordFieldMap.get(fieldName);
-            Boolean fieldNeedsQuotes = ListigaListorController.typeNeedsQuotes.get(getType(fieldValue));
-            if(fieldNeedsQuotes){
-                query = query.replaceAll('\\$record\\.'+fieldName, '\''+String.valueOf(fieldValue)+'\'');
-            } else{
-                query = query.replaceAll('\\$record\\.'+fieldName, String.valueOf(fieldValue));
+        if(record != null) {
+            Map<String, Object> recordFieldMap = record.getPopulatedFieldsAsMap();
+            for(String fieldName : recordFieldMap.keySet()){
+                Object fieldValue = recordFieldMap.get(fieldName);
+                Boolean fieldNeedsQuotes = ListigaListorController.typeNeedsQuotes.get(getType(fieldValue));
+                if(fieldNeedsQuotes){
+                    query = query.replaceAll('\\$record\\.'+fieldName, '\''+String.valueOf(fieldValue)+'\'');
+                } else{
+                    query = query.replaceAll('\\$record\\.'+fieldName, String.valueOf(fieldValue));
+                }
             }
         }
         return query;
     }
 
     static SObject getMainRecord(String query, String recordId, String objectApiName) {
+        SObject mainRecord;
         Pattern p = Pattern.compile ('\\$record\\.([\\w]+)');
         Matcher pm = p.matcher(query);
         List<String> recordFields = new List<String>();
         while(pm.find()) {
             recordFields.add(pm.group(1));
         }
-        if(!recordFields.contains('Name')) {
-            recordFields.add('Name');
+        if(recordFields.size() > 0) {
+            if(!recordFields.contains('Name')) {
+                recordFields.add('Name');
+            }
+            String recordQuery = 'SELECT '+String.join(recordFields, ', ')+' FROM '+objectApiName+' WHERE Id = \''+recordId +'\' LIMIT 1';
+            mainRecord = Database.query(recordQuery);
         }
-        String recordQuery = 'SELECT '+String.join(recordFields, ', ')+' FROM '+objectApiName+' WHERE Id = \''+recordId +'\' LIMIT 1';
-        System.debug('record QUery '+recordQuery);
-        return  Database.query(recordQuery);
+        return mainRecord;
+    }
+
+    static String getParentFieldName(String query) {
+        return query.contains('= $record.Id') ? query.substringBefore('= $record.Id').trim().substringAfterLast(' ') : null;
+
     }
 
         /***
@@ -296,7 +347,7 @@ public with sharing class ListigaListorController {
      * @return  Map<String,String>    Map of properties about the icon to be consumed by the front end.
      *                                Right now, returns values for keys: iconStyle,iconURL
      */
-    static Map<String,String> retrieveIconForObject(String sObjectName) {
+    static Map<String,String> getIconForObject(String sObjectName) {
         String iconStyle;
         String iconURL;
         String iconTag;
@@ -455,14 +506,6 @@ public with sharing class ListigaListorController {
         'List' => false
     };
 
-    public class FieldInfo {
-        @AuraEnabled public String label;
-        @AuraEnabled public String fieldName;
-        @AuraEnabled public String dataType;
-        @AuraEnabled public Boolean updateable;
-        @AuraEnabled public Boolean sortable;
-    }
-
 
     public class DataTable {
         @AuraEnabled public List<Map<String, Object>> rows;
@@ -471,9 +514,22 @@ public with sharing class ListigaListorController {
         @AuraEnabled public String objectPluralLabel;
         @AuraEnabled public String objectApiName;
         @AuraEnabled public String recordName;
+        @AuraEnabled public String parentFieldName;
         @AuraEnabled public Integer numberOfRows;
         @AuraEnabled public Map<String, String> icon;
     }
+
+    public class DataTableInput {
+        @AuraEnabled public String query;
+        @AuraEnabled public String recordId;
+        @AuraEnabled public String objectApiName;
+        @AuraEnabled public String rowActions;
+        @AuraEnabled public Integer maxColumns;
+        @AuraEnabled public Integer maxRows;
+        @AuraEnabled public String columnLabels;
+        @AuraEnabled public String lastRowRecordId;
+    }
+
 
     public class Column {
         @AuraEnabled public String label;
@@ -496,7 +552,6 @@ public with sharing class ListigaListorController {
             this.sortable = sortable;
             this.typeAttributes = typeAttributes;
         }
-
     }
 
     public class TypeAttributes  {
@@ -508,10 +563,11 @@ public with sharing class ListigaListorController {
         @AuraEnabled public String iconPostion;
 
         public TypeAttributes() {}
-        public TypeAttributes(List<String> rowActions) {
+        public TypeAttributes(String rowActions) {
+            List<String> rowActionsList = rowActions.split(',');
             List<Actions> actionsList = new List<Actions>();
-            for(String action : rowActions) {
-                actionsList.add(new Actions(action, action.toLowerCase()));
+            for(String action : rowActionsList) {
+                actionsList.add(new Actions(action.trim(), action.trim().toLowerCase()));
             }
             this.rowActions = actionsList;
         }

@@ -7,21 +7,26 @@
     <aura:attribute name="query" type="String" />
     <aura:attribute name="parentFieldName" type="String" />
     <aura:attribute name="recordTypeId" type="String" />
-    <aura:attribute name="enableRowActions" type="Boolean" />
+    <aura:attribute name="rowActions" type="String" />
     <aura:attribute name="fullListView" type="Boolean" />
     <aura:attribute name="objectPluralLabel" type="String" />
     <aura:attribute name="recordName" type="String" />
+    <aura:attribute name="columnLabels" type="String" />
+    <aura:attribute name="limitedNewForm" type="Boolean" />
+    <aura:attribute name="limitedEditForm" type="Boolean" />
     <aura:handler name="init" value="{!this}" action="{!c.doInit}"/>
 
-    <lightning:card>    
+    <lightning:card>
         <div class="slds-card__body">
             <div class="slds-card__body_inner">
                 <lightning:breadcrumbs>
                     <lightning:breadcrumb label="{!v.objectPluralLabel}" href="javascript:void(0);" onclick="{!c.navigateToObjectHome}"/>
-                    <lightning:breadcrumb label="{!v.recordName}" href="javascript:void(0);" onclick="{!c.navigateToRecord}"/>
-                </lightning:breadcrumbs> 
+                    <aura:if isTrue="{!v.recordName}">
+                        <lightning:breadcrumb label="{!v.recordName}" href="javascript:void(0);" onclick="{!c.navigateToRecord}"/>
+                    </aura:if>
+                </lightning:breadcrumbs>
             </div>
-                <c:listigLista 
+                <c:listigLista
                     childObjectName="{!v.childObjectName}"
                     objectApiName="{!v.objectApiName}"
                     recordId="{!v.recordId}"
@@ -30,7 +35,7 @@
                     query="{!v.query}"
                     parentFieldName="{!v.parentFieldName}"
                     recordTypeId="{!v.recordTypeId}"
-                    enableRowActions="{!v.enableRowActions}"
+                    rowActions="{!v.rowActions}"
                     fullListView="true"
                     showRowNumbers="false"
                     maxColumns="100"

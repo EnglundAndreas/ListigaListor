@@ -1,66 +1,67 @@
 import { LightningElement, api } from 'lwc';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class RecordEditPage extends LightningElement {
    @api recordId;
+   @api parentId;
+   @api parentFieldName;
    @api objectApiName;
+   @api objectLabel;
    @api recordTypeId;
    @api columns;
    @api header;
-   @api showPositive;
-   @api showNegative;
    @api showModal;
-   @api recordInfo;
-
+   @api createMode = false;
    fields;
 
-   constructor() {
-      super();
-      console.log('recordEdit Page constructor');
-      this.showNegative = true;
-      this.showPositive = true;
-      this.showModal = false;
-   }
+
 
    connectedCallback() {
-      console.log('connected Callback run');
-      console.log(JSON.stringify(this.recordInfo));
-      console.log(this.recordId);
-      console.log(JSON.stringify(this.columns));
-      this.header = this.recordInfo['Name'];
+      console.log('we are up in this mf');
       const fields = this.columns.map(column => {
          var fieldName = column['fieldName'];
          if(fieldName) {
-            if(fieldName.toLowerCase() == 'id') {
-               return {name:'Name', value:this.recordInfo['IdLabel']};
+            if(fieldName.toLowerCase() != 'id') {
+               return {name:fieldName};
             }
-            return {name:fieldName, value:this.recordInfo[fieldName]};
          }
       });
+      if(this.recordId) {
+         this.header = 'Edit Record';
+      } else {
+         this.header = 'Create New Record';
+         fields.push({name: this.parentFieldName, value: this.parentId});
+         var containsName = fields.some(field => {
+            return JSON.stringify({name: 'Name'}) === JSON.stringify(field);
+         });
+         var containsId = fields.some(field => {
+            return JSON.stringify({name: 'Id'}) === JSON.stringify(field);
+         })
+         if(!containsName && containsId) {
+            fields.unshift({name: 'Name'});
+         }
+         this.createMode = true;
+      }
       this.fields = fields.filter((field) => { return field });
-      console.log('<< fields transformed '+ JSON.stringify(this.fields));
    }
-
-   // handlePositive() {
-   //    this.dispatchEvent(new CustomEvent('positive'));
-   // }
-
-   // handleNegative() {
-   //    this.dispatchEvent(new CustomEvent('negative'));
-   // }
 
    handleClose() {
       this.dispatchEvent(new CustomEvent('close'));
    }
 
-   handleSubmit(event){
-      event.preventDefault();
-      console.log('handle submit', JSON.stringify(event));
-      const fields = event.detail.fields;
-      console.log(fields);
-      this.template.querySelector('lightning-record-edit-form').submit(fields);
+   handleSuccess(event){
+      console.log('onsuccess: ');
+      const evt = new ShowToastEvent({
+         title: "Success!",
+         message: "The record has been successfully saved.",
+         variant: "success",
+     });
+     this.dispatchEvent(evt);
+     this.dispatchEvent(new CustomEvent('success'));
    }
-   handleSucess(event){
-      const updatedRecord = event.detail.id;
-      console.log('onsuccess: ', updatedRecord);
+
+   handleError(event){
+      console.log('handleError');
+      console.log(JSON.stringify(event.detail));
    }
 }
