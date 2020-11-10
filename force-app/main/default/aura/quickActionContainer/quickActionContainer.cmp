@@ -1,6 +1,0 @@
-<aura:component>
-    <aura:attribute name="actionName" type="String" />
-    <aura:attribute name="recordId" type="String" />
-    <aura:handler name='init' value='{!this}' action='{!c.doInit}' />
-    <lightning:quickActionAPI aura:id="quickActionAPI"/>
-</aura:component>
