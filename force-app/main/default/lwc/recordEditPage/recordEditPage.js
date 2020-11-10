@@ -17,7 +17,6 @@ export default class RecordEditPage extends LightningElement {
 
 
    connectedCallback() {
-      console.log('we are up in this mf');
       const fields = this.columns.map(column => {
          var fieldName = column['fieldName'];
          if(fieldName) {
@@ -26,20 +25,23 @@ export default class RecordEditPage extends LightningElement {
             }
          }
       });
+
+      fields.push({name: this.parentFieldName, value: this.parentId});
+      
+      var containsName = fields.some(field => {
+         return JSON.stringify({name: 'Name'}) === JSON.stringify(field);
+      });
+      var containsId = fields.some(field => {
+         return JSON.stringify({name: 'IdLink'}) === JSON.stringify(field);
+      })
+      if(!containsName && containsId) {
+         fields.unshift({name: 'Name'});
+      }
+
       if(this.recordId) {
          this.header = 'Edit Record';
       } else {
          this.header = 'Create New Record';
-         fields.push({name: this.parentFieldName, value: this.parentId});
-         var containsName = fields.some(field => {
-            return JSON.stringify({name: 'Name'}) === JSON.stringify(field);
-         });
-         var containsId = fields.some(field => {
-            return JSON.stringify({name: 'Id'}) === JSON.stringify(field);
-         })
-         if(!containsName && containsId) {
-            fields.unshift({name: 'Name'});
-         }
          this.createMode = true;
       }
       this.fields = fields.filter((field) => { return field });

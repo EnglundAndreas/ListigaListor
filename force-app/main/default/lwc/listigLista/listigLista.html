@@ -6,11 +6,13 @@
         <template if:true={error}>
             <p class="slds-text-color_error">{error}</p>
         </template>
-        <lightning-card icon-name={iconName}>
+        <lightning-card icon-name={customIconName}>
             <div slot="title">
-                <span class="slds-icon_container slds-avatar slds-var-m-right_x-small customIcon">
-                    <img src={iconUrl} class={iconClass}></img>
-                </span>
+                <template if:false={customIconName}>
+                    <span class="slds-icon_container slds-avatar slds-var-m-right_x-small customIcon">
+                        <img src={iconUrl} class={iconClass}></img>
+                    </span>
+                </template>
                 <a class="slds-card__header-link" href="javascript:void(0);" onclick={clickViewAll}>{listTitle}</a>
             </div>
             <lightning-button label="New" slot="actions" onclick={createNew}></lightning-button>
@@ -19,7 +21,7 @@
                     <lightning-button label="View All" variant="Base" onclick={clickViewAll}></lightning-button>
                 </template>
             </div>
-                    <div id="listDataTable" style={dataTableStyle}>
+                    <div id="listDataTable">
 
                         <!-- <c-custom-data-table
                             key-field="Id"
@@ -34,26 +36,43 @@
                             oncancel={handleCancel}
                         >
                         </c-custom-data-table> -->
-                  
+
                         <lightning-datatable
                             key-field="id"
                             data={data}
                             columns={columns}
                             onrowaction={handleRowAction}
-                            show-row-number-column={showRowNumbers}
+                            hide-checkbox-column={hideCheckboxColumn}
                             onsave={handleSave}
                             draft-values={draftValues}
                             default-sort-direction='asc'
                             sorted-by={sortBy}
                             sorted-direction={sortDirection}
                             onsort={updateColumnSorting}
-                            onloadmore={loadMoreData}
                         >
+
                         <!-- is-loading={loadingData}
                         enable-infinite-loading
                         onloadmore={loadMoreData}  -->
                         </lightning-datatable>
-                   
+                        <div if:true={fullListView}>
+                            <div class="slds-m-around_medium slds-align_absolute-center">
+                                <div>
+                                    <lightning-button-group>
+                                        <lightning-button label="First" onclick={goToFirst} disabled={disableBack}></lightning-button>
+                                        <lightning-button label="Previous" onclick={goToPrevious} disabled={disableBack}></lightning-button>
+                                    </lightning-button-group>
+                                    <span>
+                                        Displaying {beginIndex} to {endndex} of {totalNumberOfRows} records.
+                                        Page {currentPage} of {totalPages}.
+                                    </span>
+                                    <lightning-button-group>
+                                        <lightning-button label="Next" onclick={goToNext} disabled={disableForward}></lightning-button>
+                                        <lightning-button label="Last" onclick={goToLast} disabled={disableForward}></lightning-button>
+                                    </lightning-button-group>
+                                </div>
+                            </div>
+                        </div>
                         <template if:true={showModal}>
                             <c-record-edit-page
                                 show-modal={showModal}

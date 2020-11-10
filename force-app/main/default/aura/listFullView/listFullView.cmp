@@ -3,7 +3,7 @@
     <aura:attribute name="childObjectName" type="String" />
     <aura:attribute name="objectApiName" type="String" />
     <aura:attribute name="listTitle" type="String" />
-    <aura:attribute name="iconName" type="String" />
+    <aura:attribute name="customIconName" type="String" />
     <aura:attribute name="query" type="String" />
     <aura:attribute name="parentFieldName" type="String" />
     <aura:attribute name="recordTypeId" type="String" />
@@ -14,6 +14,8 @@
     <aura:attribute name="columnLabels" type="String" />
     <aura:attribute name="limitedNewForm" type="Boolean" />
     <aura:attribute name="limitedEditForm" type="Boolean" />
+    <aura:attribute name="showCheckboxColumn" type="Boolean" />
+    <aura:attribute name="rowsPerPage" type="Integer" />
     <aura:handler name="init" value="{!this}" action="{!c.doInit}"/>
 
     <lightning:card>
@@ -31,14 +33,16 @@
                     objectApiName="{!v.objectApiName}"
                     recordId="{!v.recordId}"
                     listTitle="{!v.listTitle}"
-                    iconName="{!v.iconName}"
+                    customIconName="{!v.customIconName}"
                     query="{!v.query}"
                     parentFieldName="{!v.parentFieldName}"
                     recordTypeId="{!v.recordTypeId}"
                     rowActions="{!v.rowActions}"
                     fullListView="true"
-                    showRowNumbers="false"
+                    showRowNumbers="true"
                     maxColumns="100"
+                    showCheckboxColumn="{!v.showCheckboxColumn}"
+                    rowsPerPage="{!v.rowsPerPage}"
                 />
          </div>
     </lightning:card>

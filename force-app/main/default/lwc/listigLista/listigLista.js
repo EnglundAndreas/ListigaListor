@@ -5,7 +5,6 @@ import { updateRecord, deleteRecord } from "lightning/uiRecordApi";
 import { refreshApex } from "@salesforce/apex";
 import { ShowToastEvent } from "lightning/platformShowToastEvent";
 import { NavigationMixin, CurrentPageReference } from 'lightning/navigation';
-import { getRecord } from 'lightning/uiRecordApi';
 
 export default class ListigLista extends NavigationMixin(LightningElement) {
   @api childObjectName;
@@ -17,16 +16,19 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
   @api recordTypeId;
   @api rowActions;
   @api fullListView = false;
-  @api showRowNumbers = false;
+  @api showRowNumbers;
+  @api showCheckboxColumn;
   @api maxColumns=99;
-  @api maxRows =99;
+  @api maxRows;
   @api columnLabels = ' ';
   @api limitedEditForm;
   @api limitedNewForm;
   @api sortBy;
   @api sortDirection;
+  @api rowsPerPage = 20;
 
   data;
+  allRows;
   totalNumberOfRows = 0;
   error;
   columns = [];
@@ -46,64 +48,80 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
   wiredResult;
   showDeleteDialog = false;
   parentFieldName;
-  get dataTableStyle() {
-    return this.fullListView ? "height: 500px": "";
-  } 
+  beginIndex = 0;
+  endIndex = 0;
+  currentPage = 0;
+  totalPages = 0;
+  disableBack = false;
+  disableForward = false;
 
-  @wire(getRecordsByQuery, {
-    query: "$query", 
-    recordId: "$recordId",
-    objectApiName: "$objectApiName",
-    rowActions: "$rowActions",
-    maxColumns: "$maxColumns",
-    maxRows: "$maxRows",
-    columnLabels: '$columnLabels',
-    fullView: "$fullListView"
-  })
-  wireRecordsByQuery(result) {
-    if (result.data) {
-      let tempList = [];
-      console.log('Hello data',result.data);
+  connectedCallback() {
+    this.hideCheckboxColumn = !this.showCheckboxColumn;
+    if((this.query || '').trim()) {
+      getRecordsByQuery({
+        query: this.query,
+        recordId: this.recordId,
+        objectApiName: this.objectApiName,
+        rowActions: this.rowActions,
+        columnLabels: this.columnLabels,
+        maxColumns: this.maxColumns,
+        maxRows: this.maxRows})
+      .then(result => {
+        console.log(result);
+        this.wiredResult = result;
+        this.allRows = result.rows;
+        this.data = result.rows;
+        console.log(result.rows);
+        console.log(result.columns);
+        this.columns = result.columns
+        this.parentFieldName = result.parentFieldName;
+        this.objectPluralLabel = result.objectPluralLabel;
+        this.totalNumberOfRows = result.numberOfRows;
+        if(!this.listTitle) {
+          this.listTitle = result.objectPluralLabel;
+        }
+        if(!this.listTitle.includes(this.totalNumberOfRows)) {
+          this.listTitle +=' ('+this.totalNumberOfRows+')'
+        }
+        this.childObjectName = result.objectApiName;
+        this.recordName = result.recordName;
+        this.iconUrl = result.icon.iconURL;
+        this.iconClass = result.icon.iconStyle;
 
-      this.wiredResult = result;
-      this.data = result.data.rows;
-      console.log('<< ROWS <<');
-      console.log(result.data.rows);
 
-      this.columns = result.data.columns;
-      this.parentFieldName = result.data.parentFieldName;
-      this.objectPluralLabel = result.data.objectPluralLabel;
-      this.totalNumberOfRows = result.data.numberOfRows;
-      if(!this.listTitle) {
-        this.listTitle = result.data.objectPluralLabel + ' ('+this.totalNumberOfRows+')';
-      }
-      this.childObjectName = result.data.objectApiName;
-      this.recordName = result.data.recordName;
-      this.iconUrl = result.data.icon.iconURL;
-      this.iconClass = result.data.icon.iconStyle;
-    } else if (result.error) {
-      let error = result.error;
-      let message = "Unknown error";
-      if (Array.isArray(error.body)) {
-        message = error.body.map((e) => e.message).join(", ");
-      } else if (typeof error.body.message === "string") {
-        message = error.body.message;
-      }
-      this.error = message;
-      this.dispatchEvent(
-        new ShowToastEvent({
-          title: "Error loading Records",
-          message,
-          variant: "error",
-        })
-      );
+        if(this.fullListView) {
+          this.filterRecords(0);
+        }
+      }).catch(error =>  {
+        console.log(error);
+        let message = "Unknown error";
+        if (Array.isArray(error.body)) {
+          message = error.body.map((e) => e.message).join(", ");
+        } else if (typeof error.body.message === "string") {
+          message = error.body.message;
+        }
+        this.error = message;
+        this.dispatchEvent(
+          new ShowToastEvent({
+            title: "Error loading Records",
+            message,
+            variant: "error",
+          })
+        );
+      });
+      this.showSpinner = false;
+    } else {
+      this.error = 'Please enter a query';
+      this.showSpinner = false;
     }
-    this.showSpinner = false;
+
+
+
   }
+
 
   handleSave(event) {
     var draftValuesStr = JSON.stringify(event.detail.draftValues);
-    console.log('draftValuesStr '+draftValuesStr);
     updateRecords({
       sObjList: this.data,
       updateObjStr: draftValuesStr,
@@ -194,8 +212,6 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
 
 
   editRecordFullView(row) {
-    console.log('Edit ',JSON.stringify(row));
-    console.log('Id ',row.Id);
       this[NavigationMixin.Navigate]({
           type: 'standard__recordPage',
           attributes: {
@@ -244,7 +260,6 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
             recordTypeId: this.recordTypeId
         }
       }).then(result => {
-        console.log(result);
         return refreshApex(this.wiredResult);
 
       }).catch(error => {
@@ -280,7 +295,6 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
   }
 
   clickViewAll() {
-    console.log('view All');
     this[NavigationMixin.Navigate]({
       type: "standard__component",
       attributes: {
@@ -291,7 +305,7 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
         c__childObjectName: this.childObjectName,
         c__objectApiName: this.objectApiName,
         c__listTitle: this.listTitle,
-        c__iconName: this.iconName,
+        c__customIconName: this.customIconName,
         c__query: this.query,
         c__parentFieldName: this.parentFieldName,
         c__rowActions: this.rowActions,
@@ -299,7 +313,9 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
         c__recordName: this.recordName,
         c__columnLabels: this.columnLabels,
         c__limitedNewForm: this.limitedNewForm,
-        c__limitedEditForm: this.limitedEditForm
+        c__limitedEditForm: this.limitedEditForm,
+        c__showCheckboxColumn: this.showCheckboxColumn,
+        c__rowsPerPage: this.rowsPerPage,
       }
     });
 
@@ -307,7 +323,6 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
 
 
   updateDataValues(updateItem) {
-    console.log('update Data Values ',updateItem);
     let copyData = [... this.data];
     copyData.forEach(item => {
         if (item.Id === updateItem.Id) {
@@ -355,45 +370,157 @@ export default class ListigLista extends NavigationMixin(LightningElement) {
 
   handleModalSuccess(event) {
     this.showModal = false;
-    console.log('i guess success?');
     return refreshApex(this.wiredResult);
-   }
-
-  loadMoreData(event) {
-    //Display a spinner to signal that data is being loaded
-    //event.target.isLoading = true;
-    //Display "Loading" when more data is being loaded
-    console.log('<< loadMoreData');
-    const currentData = this.data;
-    const lastRecId = currentData[currentData.length - 1].Id;
-    if(currentData.length < this.totalNumberOfRows && this.fullListView) {
-      console.log('Oh yeah')
-      this.loadingData = true;
-      getRecordsByQuery({
-        query: this.query, 
-        recordId: this.recordId, 
-        objectApiName: this.objectApiName,
-        rowActions: this.rowActions,
-        columnLabels: this.columnLabels,
-        fullView: this.fullListView,
-        lastRowRecordId: lastRecId})
-        .then(result => {
-          const loadedData = result.rows;
-          //Appends new data to the end of the table
-          console.log(this.data);
-          console.log(this.data.length);
-          console.log(this.totalNumberOfRows);
-          const newData = currentData + loadedData;
-          this.data = newData;
-      })
-      .catch(error => {
-          console.log('-------error-------------',error);
-          console.log(error);
-      });
-    }
-    this.loadingData = false;
-    console.log('lastRecId ', lastRecId);
-   
   }
 
+  goToFirst(event) {
+    this.filterRecords(0);
+  }
+
+  goToPrevious(event) {
+      var newIndex = (this.beginIndex - Number(this.rowsPerPage));
+      newIndex--;
+      this.filterRecords(newIndex);
+  }
+
+  goToNext(event) {
+      var newIndex = (this.beginIndex + Number(this.rowsPerPage));
+      newIndex--;
+      this.filterRecords(newIndex);
+  }
+
+  goToLast(event) {
+      var newIndex = (this.totalPages-1) * Number(this.rowsPerPage);
+      this.filterRecords(newIndex);
+  }
+
+  filterRecords(startingIndex) {
+    if (this.data && this.data.length > 0) {
+      this.recordCount = this.data.length;
+      this.totalPages = Math.ceil(this.totalNumberOfRows / Number(this.rowsPerPage));
+      var viewRecords = [];
+      var endingIndex = startingIndex + Number(this.rowsPerPage);
+      if (endingIndex > this.totalNumberOfRows) {
+          endingIndex = this.totalNumberOfRows;
+      }
+      this.beginIndex = startingIndex + 1;
+      this.endIndex = endingIndex;
+
+      var index = startingIndex;
+      this.currentPage = Math.ceil(this.beginIndex / Number(this.rowsPerPage));
+      while(index < endingIndex) {
+        viewRecords.push(this.allRows[index]);
+        index++;
+      }
+      this.data = viewRecords;
+    } else {
+      this.totalNumberOfRows = 0;
+      this.totalPages = 0;
+      this.currentPage = 0;
+      this.beginIndex = 0;
+      this.endndex = 0;
+      this.data = [];
+    }
+    this.renderButtons();
+  }
+  renderButtons() {
+    if (this.beginIndex < Number(this.rowsPerPage)) {
+        this.disableBack = true;
+    } else {
+        this.disableBack = false;
+    }
+
+    if (this.currentPage == this.totalPages) {
+        this.disableForward = true;
+    } else {
+        this.disableForward = false;
+    }
+  }
+
+
+
 }
+  // loadMoreData(event) {
+
+  //   //Display a spinner to signal that data is being loaded
+  //   //Display "Loading" when more data is being loaded
+  //   console.log('Loooooading');
+  //   console.log(this.data);
+  //   console.log('total numb ',this.totalNumberOfRows);
+  //   if(this.fullListView && this.data.length < this.totalNumberOfRows) {
+  //     const currentRecord = this.data;
+  //     const lastRecId = currentRecord[currentRecord.length - 1].Id;
+  //     const lastRecName = currentRecord[currentRecord.length - 1].Name;
+  //     console.log('lastREC ',lastRecId);
+  //     console.log('lastREC NAME ',lastRecName);
+  //     getRecordsByQuery({
+  //             query: this.query,
+  //             recordId: this.recordId,
+  //             objectApiName: this.objectApiName,
+  //             rowActions: this.rowActions,
+  //             columnLabels: this.columnLabels,
+  //             maxRows: this.maxRows,
+  //             lastRowRecordId: lastRecId})
+  //     .then(result => {
+  //         const currentData = result.rows;
+  //         //Appends new data to the end of the table
+  //         const newData = currentRecord.concat(currentData.filter((item) => currentRecord.indexOf(item) < 0));
+  //         this.data = newData;
+  //         //.filter((item, pos) => newData.indexOf(item) === pos);
+  //     })
+  //     .catch(error => {
+  //         console.log('-------error-------------'+error);
+  //         console.log(error);
+  //     });
+  //   }
+
+  //}
+  // @wire(getRecordsByQuery, {
+  //   query: "$query",
+  //   recordId: "$recordId",
+  //   objectApiName: "$objectApiName",
+  //   rowActions: "$rowActions",
+  //   maxColumns: "$maxColumns",
+  //   maxRows: "$maxRows",
+  //   columnLabels: '$columnLabels',
+  //   rowOffSet: "$rowOffSet"
+  // })
+  // wireRecordsByQuery(result) {
+  //   if (result.data) {
+  //     console.log('Hello data',result.data);
+
+  //     this.wiredResult = result;
+  //     this.data = result.data.rows;
+  //     console.log('<< ROWS <<');
+  //     console.log(result.data.rows);
+
+  //     this.columns = result.data.columns;
+  //     this.parentFieldName = result.data.parentFieldName;
+  //     this.objectPluralLabel = result.data.objectPluralLabel;
+  //     this.totalNumberOfRows = result.data.numberOfRows;
+  //     if(!this.listTitle) {
+  //       this.listTitle = result.data.objectPluralLabel + ' ('+this.totalNumberOfRows+')';
+  //     }
+  //     this.childObjectName = result.data.objectApiName;
+  //     this.recordName = result.data.recordName;
+  //     this.iconUrl = result.data.icon.iconURL;
+  //     this.iconClass = result.data.icon.iconStyle;
+  //   } else if (result.error) {
+  //     let error = result.error;
+  //     let message = "Unknown error";
+  //     if (Array.isArray(error.body)) {
+  //       message = error.body.map((e) => e.message).join(", ");
+  //     } else if (typeof error.body.message === "string") {
+  //       message = error.body.message;
+  //     }
+  //     this.error = message;
+  //     this.dispatchEvent(
+  //       new ShowToastEvent({
+  //         title: "Error loading Records",
+  //         message,
+  //         variant: "error",
+  //       })
+  //     );
+  //   }
+  //   this.showSpinner = false;
+  // }
