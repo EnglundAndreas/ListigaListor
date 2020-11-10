@@ -23,7 +23,7 @@ public with sharing class ListigaListorController {
         //     query = setQueryLastRowRecordId(query, lastRowRecordId);
         // }
 
-        if(!query.contains('ORDER BY')) {
+        if(!query.contains('order by')) {
             query += defaultSortOrder;
         }
         // } else if(lastRowRecordId != null) { // Override sort order if loading more records
@@ -35,7 +35,7 @@ public with sharing class ListigaListorController {
         DescribeSObjectResult mainObjInfo = ListigaListorUtils.getSObjectInfo(mainObjectName);
         Map<String, DescribeFieldResult> fieldInfoMap = ListigaListorUtils.getFieldInfoMap(fieldNames, mainObjInfo);
         query = addRelationNamesToQuery(query, fieldInfoMap);
-        query += ' NULLS LAST';
+        query += ' nulls last';
 
         System.debug('transformed query'+ query);
         List<SObject> records = Database.query( query );
@@ -46,7 +46,7 @@ public with sharing class ListigaListorController {
         dataTable.objectApiName = mainObjectName;
         dataTable.parentObjectPluralLabel = ListigaListorUtils.getSObjectInfo(objectApiName).getLabelPlural();
         dataTable.objectPluralLabel = mainObjInfo.getLabelPlural();
-        dataTable.recordName = record != null ? String.valueOf(record.get('Name')) : null;
+        dataTable.recordName = record != null ? String.valueOf(record.get('name')) : null;
         dataTable.parentFieldName = parentFieldName;
         dataTable.icon = ListigaListorUtils.getIconForObject(mainObjectName);
         dataTable.rows = getRows(records, fieldInfoMap, maxRows);
@@ -56,10 +56,10 @@ public with sharing class ListigaListorController {
     }
     @TestVisible
     static String getObjectName(String query) {
-        if(query.contains('WHERE')) {
-            return query.substringBetween('FROM ', ' WHERE').trim();
+        if(query.contains('where')) {
+            return query.substringBetween('from ', ' where').trim();
         }
-        return query.substringAfter('FROM ').substringBefore(' ').trim();
+        return query.substringAfter('from ').substringBefore(' ').trim();
     }
     @TestVisible
     static void validateQuerySyntax(String query){
@@ -164,8 +164,8 @@ public with sharing class ListigaListorController {
                 }
                 row.put(fieldName, fieldValue);
             }
-            row.put('Id', record.Id);
-            row.put('Name', record.get('Name'));
+            row.put('id', record.Id);
+            row.put('name', record.get('name'));
             rows.add(row);
             rowCounter++;
         }
@@ -174,12 +174,12 @@ public with sharing class ListigaListorController {
 
     static void setLinkRow(Map<String, Object> row, SObject record, String fieldName, Object fieldValue) {
         row.put(fieldName+'Link', '/'+fieldValue);
-        row.put(fieldName+'Label', record.get('Name'));
+        row.put(fieldName+'Label', record.get('name'));
     }
 
     static List<String> getFieldsFromQuery(String query) {
         List<String> fields = new List<String>();
-        for(String field : query.substringBetween('SELECT', 'FROM').split(',')) {
+        for(String field : query.substringBetween('select', 'from').split(',')) {
             fields.add(field.trim());
         }
         return fields;
@@ -187,7 +187,7 @@ public with sharing class ListigaListorController {
 
     static String addRelationNamesToQuery(String query, Map<String, DescribeFieldResult> fieldInfoMap) {
         List<String> fields = new List<String>();
-        String selectFields = query.substringBetween('SELECT', 'FROM').trim();
+        String selectFields = query.substringBetween('select', 'from').trim();
         String newSelectFields = selectFields;
         for(String fieldName : selectFields.split(',')) {
             fieldName = fieldName.trim();
@@ -197,23 +197,23 @@ public with sharing class ListigaListorController {
                 String relFieldName = fieldName.substring(fieldName.indexOf('.')+1);
             }
             String relObjName = fieldInfo.getRelationshipName();
-            if(relObjName != null && !newSelectFields.containsIgnoreCase(relObjName+'.Name')) {
-                newSelectFields += ', '+relObjName+'.Name ';
+            if(relObjName != null && !newSelectFields.containsIgnoreCase(relObjName+'.name')) {
+                newSelectFields += ', '+relObjName+'.name ';
             }
         }
-        Boolean firstFieldIsNotName = newSelectFields.substringBefore(',').trim() != 'Name' && newSelectFields !='Name';
-        if(!newSelectFields.containsIgnoreCase(' Name') && firstFieldIsNotName) {
-            newSelectFields +=', Name ';
+        Boolean firstFieldIsNotName = newSelectFields.substringBefore(',').trim() != 'name' && newSelectFields !='name';
+        if(!newSelectFields.containsIgnoreCase(' name') && firstFieldIsNotName) {
+            newSelectFields +=', name ';
         }
         query = query.replace(selectFields, newSelectFields);
         return query;
     }
 
     static String setQueryLastRowRecordId(String query, String lastRowRecordId) {
-        if(!query.contains('WHERE')) {
-            query += ' WHERE Id < \''+lastRowRecordId+'\'';
+        if(!query.contains('where')) {
+            query += ' where id < \''+lastRowRecordId+'\'';
         } else {
-            query += ' AND Id < \''+lastRowRecordId+'\'';
+            query += ' and id < \''+lastRowRecordId+'\'';
         }
         return query;
     }
@@ -247,7 +247,7 @@ public with sharing class ListigaListorController {
             if(!recordFields.contains('name')) {
                 recordFields.add('name');
             }
-            String recordQuery = 'SELECT '+String.join(recordFields, ', ')+' FROM '+objectApiName+' WHERE Id = \''+recordId +'\' LIMIT 1';
+            String recordQuery = 'select '+String.join(recordFields, ', ')+' from '+objectApiName+' where id = \''+recordId +'\' limit 1';
             mainRecord = Database.query(recordQuery);
         }
         return mainRecord;
@@ -255,7 +255,7 @@ public with sharing class ListigaListorController {
 
     @TestVisible
     static String getParentFieldName(String query) {
-        return query.contains('= $record.Id') ? query.substringBefore('= $record.Id').trim().substringAfterLast(' ') : null;
+        return query.contains('= $record.id') ? query.substringBefore('= $record.id').trim().substringAfterLast(' ') : null;
     }
 
 
