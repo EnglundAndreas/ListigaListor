@@ -1,0 +1,46 @@
+{
+    "summary": {
+        "outcome": "Failed",
+        "testsRan": 1,
+        "passing": 0,
+        "failing": 1,
+        "skipped": 0,
+        "passRate": "0%",
+        "failRate": "100%",
+        "testStartTime": "Sep 26, 2020 1:33 PM",
+        "testExecutionTime": "640 ms",
+        "testTotalTime": "640 ms",
+        "commandTime": "2709 ms",
+        "hostname": "https://listigalistorapp-dev-ed.my.salesforce.com",
+        "orgId": "00D2X000001QonXUAS",
+        "username": "listiga.listor@devcore.se",
+        "testRunId": "7077R00009L5eHE",
+        "userId": "0052X000009qq7QQAQ"
+    },
+    "tests": [
+        {
+            "attributes": {
+                "type": "ApexTestResult",
+                "url": "/services/data/v49.0/tooling/sobjects/ApexTestResult/07M7R0000065YtYUAU"
+            },
+            "Id": "07M7R0000065YtYUAU",
+            "QueueItemId": "7097R000000SZmMQAW",
+            "StackTrace": "Class.ListigaListorController.getColumns: line 95, column 1\nClass.ListigaListorController.getRecordsByQuery: line 52, column 1\nClass.ListigaListorControllerTest.queryContactRecordsTest: line 36, column 1",
+            "Message": "System.ListException: List index out of bounds: -1",
+            "AsyncApexJobId": "7077R00009L5eHEQAZ",
+            "MethodName": "queryContactRecordsTest",
+            "Outcome": "Fail",
+            "ApexClass": {
+                "attributes": {
+                    "type": "ApexClass",
+                    "url": "/services/data/v49.0/tooling/sobjects/ApexClass/01p7R000006SnjQQAS"
+                },
+                "Id": "01p7R000006SnjQQAS",
+                "Name": "ListigaListorControllerTest",
+                "NamespacePrefix": null
+            },
+            "RunTime": 640,
+            "FullName": "ListigaListorControllerTest.queryContactRecordsTest"
+        }
+    ]
+}

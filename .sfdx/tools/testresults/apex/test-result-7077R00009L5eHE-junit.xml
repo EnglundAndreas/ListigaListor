@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+    <testsuite name="force.apex" timestamp="2020-09-26T13:33:16+02:00" hostname="https://listigalistorapp-dev-ed.my.salesforce.com" tests="1" failures="1"  errors="0"  time="0.64">
+        <properties>
+            <property name="outcome" value="Failed"/>
+            <property name="testsRan" value="1"/>
+            <property name="passing" value="0"/>
+            <property name="failing" value="1"/>
+            <property name="skipped" value="0"/>
+            <property name="passRate" value="0%"/>
+            <property name="failRate" value="100%"/>
+            <property name="testStartTime" value="Sep 26, 2020 1:33 PM"/>
+            <property name="testExecutionTime" value="0.64 s"/>
+            <property name="testTotalTime" value="0.64 s"/>
+            <property name="commandTime" value="2.71 s"/>
+            <property name="hostname" value="https://listigalistorapp-dev-ed.my.salesforce.com"/>
+            <property name="orgId" value="00D2X000001QonXUAS"/>
+            <property name="username" value="listiga.listor@devcore.se"/>
+            <property name="testRunId" value="7077R00009L5eHE"/>
+            <property name="userId" value="0052X000009qq7QQAQ"/>
+        </properties>
+        <testcase name="queryContactRecordsTest" classname="ListigaListorControllerTest" time="0.64">
+            <failure message="System.ListException: List index out of bounds: -1"><![CDATA[Class.ListigaListorController.getColumns: line 95, column 1
+Class.ListigaListorController.getRecordsByQuery: line 52, column 1
+Class.ListigaListorControllerTest.queryContactRecordsTest: line 36, column 1]]></failure>
+        </testcase>
+    </testsuite>
+</testsuites>

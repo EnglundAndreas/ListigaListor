@@ -1,0 +1,55 @@
+{
+    "compilerOptions": {
+        "experimentalDecorators": true,
+        "baseUrl": ".",
+        "paths": {
+            "c/compactPopoverView": [
+                "compactPopoverView/compactPopoverView.js"
+            ],
+            "c/customDataTable": [
+                "customDataTable/customDataTable.js"
+            ],
+            "c/customDatatableDemo": [
+                "customDatatableDemo/customDatatableDemo.js"
+            ],
+            "c/datatablePicklist": [
+                "datatablePicklist/datatablePicklist.js"
+            ],
+            "c/fullScreenView": [
+                "fullScreenView/fullScreenView.js"
+            ],
+            "c/listigLista": [
+                "listigLista/listigLista.js"
+            ],
+            "c/lookupLwc": [
+                "lookupLwc/lookupLwc.js"
+            ],
+            "c/recordEditPage": [
+                "recordEditPage/recordEditPage.js"
+            ],
+            "c/stencilLwc": [
+                "stencilLwc/stencilLwc.js"
+            ],
+            "c/testCompactPopoverViewParent": [
+                "testCompactPopoverViewParent/testCompactPopoverViewParent.js"
+            ],
+            "c/customList": [
+                "customList/customList.js"
+            ]
+        }
+    },
+    "include": [
+        "**/*",
+        "../../../../.sfdx/typings/lwc/**/*.d.ts"
+    ],
+    "typeAcquisition": {
+        "include": [
+            "jest"
+        ]
+    },
+    "paths": {
+        "c/*": [
+            "*"
+        ]
+    }
+}
