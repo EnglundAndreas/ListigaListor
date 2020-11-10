@@ -1,0 +1,105 @@
+<template>
+    <div if:true={showSpinner} class="slds-spinner_inline spinner-padding">
+        <lightning-spinner variant="brand" alternative-text="Loading Records..." size="medium"></lightning-spinner>
+    </div>
+    <div if:false={showSpinner}>
+        <template if:true={error}>
+            <p class="slds-text-color_error">{error}</p>
+        </template>
+        <lightning-card icon-name={customIconName}>
+            <div slot="title">
+                <template if:false={customIconName}>
+                    <span class="slds-icon_container slds-avatar slds-var-m-right_x-small customIcon">
+                        <img src={iconUrl} class={iconClass}></img>
+                    </span>
+                </template>
+                <a class="slds-card__header-link" href="javascript:void(0);" onclick={clickViewAll}>{listTitle}</a>
+            </div>
+            <lightning-button label="New" slot="actions" onclick={createNew}></lightning-button>
+            <div slot="footer">
+                <template if:false={fullListView}>
+                    <lightning-button label="View All" variant="Base" onclick={clickViewAll}></lightning-button>
+                </template>
+            </div>
+                    <div id="listDataTable">
+
+                        <!-- <c-custom-data-table
+                            key-field="Id"
+                            data={data}
+                            columns={columns}
+                            onpicklistchanged={picklistChanged}
+                            onvalueselect={handleSelection}
+                            draft-values={draftValues}
+                            oncellchange={handleCellChange}
+                            onrowaction={handleRowAction}
+                            onsave={handleSave}
+                            oncancel={handleCancel}
+                        >
+                        </c-custom-data-table> -->
+
+                        <lightning-datatable
+                            key-field="id"
+                            data={data}
+                            columns={columns}
+                            onrowaction={handleRowAction}
+                            hide-checkbox-column={hideCheckboxColumn}
+                            onsave={handleSave}
+                            draft-values={draftValues}
+                            default-sort-direction='asc'
+                            sorted-by={sortBy}
+                            sorted-direction={sortDirection}
+                            onsort={updateColumnSorting}
+                        >
+
+                        <!-- is-loading={loadingData}
+                        enable-infinite-loading
+                        onloadmore={loadMoreData}  -->
+                        </lightning-datatable>
+                        <div if:true={fullListView}>
+                            <div class="slds-m-around_medium slds-align_absolute-center">
+                                <div>
+                                    <lightning-button-group>
+                                        <lightning-button label="First" onclick={goToFirst} disabled={disableBack}></lightning-button>
+                                        <lightning-button label="Previous" onclick={goToPrevious} disabled={disableBack}></lightning-button>
+                                    </lightning-button-group>
+                                    <span>
+                                        Displaying {beginIndex} to {endndex} of {totalNumberOfRows} records.
+                                        Page {currentPage} of {totalPages}.
+                                    </span>
+                                    <lightning-button-group>
+                                        <lightning-button label="Next" onclick={goToNext} disabled={disableForward}></lightning-button>
+                                        <lightning-button label="Last" onclick={goToLast} disabled={disableForward}></lightning-button>
+                                    </lightning-button-group>
+                                </div>
+                            </div>
+                        </div>
+                        <template if:true={showModal}>
+                            <c-record-edit-page
+                                show-modal={showModal}
+                                onsuccess={handleModalSuccess}
+                                onclose={handleModalClose}
+                                record-id={editRecordId}
+                                record-info={editRecord}
+                                record-type-id={recordTypeId}
+                                parent-id={recordId}
+                                parent-field-name={parentFieldName}
+                                object-api-name={childObjectName}
+                                columns={columns}
+                            >
+                            </c-record-edit-page>
+                        </template>
+                        <c-confirmation-dialog
+                            title='Delete Record'
+                            message='Are you sure you want to delete?'
+                            confirm-label='Delete'
+                            cancel-label='Cancel'
+                            visible={showDeleteDialog}
+                            original-message={originalMessage}
+                            name="confirmModal"
+                            onclick={handleDelete}>
+                        </c-confirmation-dialog>
+                    </div>
+                {loadMoreStatus}
+        </lightning-card>
+    </div>
+</template>

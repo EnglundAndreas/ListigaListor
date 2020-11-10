@@ -1,0 +1,9 @@
+.slds-lookup__item {
+    overflow: auto;
+    overflow-y: hidden;
+    height: 10rem;
+}
+
+td {
+    background-color: blue !important;
+}

@@ -1,0 +1,56 @@
+<template>
+        <template if:true={showModal}>
+            <div>
+                <section role="dialog" tabindex="-1" aria-labelledby="modal-heading-01" aria-modal="true" aria-describedby="modal-content-id-1" class="slds-modal slds-fade-in-open">
+                    <div class="slds-modal__container slds-large-size_8-of-8" style="align-items: center;">
+                        <header class="slds-modal__header">
+                            <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                                title="Close" onclick={handleClose}>
+                                <lightning-icon icon-name="utility:close" alternative-text="close" variant="warning"></lightning-icon>
+                                <span class="slds-assistive-text">Close</span>
+                            </button>
+                            <div slot="header">
+                                <h2 slot="header" id="modal-heading-01" class="slds-text-heading_medium slds-hyphenate">{header}</h2>
+                            </div>
+                        </header>
+                        <lightning-record-edit-form
+                                    record-id={recordId}
+                                    object-api-name={objectApiName}
+                                    record-type-id={recordTypeId}
+                                    onsuccess={handleSuccess}
+                                    onerror={handleError}
+                                    >
+                            <div class="slds-modal__content slds-var-p-around_medium" id="modal-content-id-1">
+                                <template if:true={fields}>
+                                        <lightning-messages></lightning-messages>
+                                        <template for:each={fields} for:item="field">
+                                            <lightning-input-field
+                                                key={field.name}
+                                                field-name={field.name}
+                                                value={field.value}>
+                                            </lightning-input-field>
+                                        </template>
+                                </template>
+                            </div>
+                            <footer class="slds-modal__footer">
+                                <lightning-button
+                                    class="slds-var-m-top_small"
+                                    name="cancel"
+                                    onclick={handleClose}
+                                    label="Cancel">
+                                </lightning-button>
+                                <lightning-button
+                                    class="slds-var-m-top_small slds-var-m-left_small"
+                                    variant="brand"
+                                    type="submit"
+                                    name="save"
+                                    label="Save">
+                                </lightning-button>
+                            </footer>
+                        </lightning-record-edit-form>
+                    </div>
+                </section>
+                <div class="slds-backdrop slds-backdrop_open"></div>
+            </div>
+        </template>
+    </template>
