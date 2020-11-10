@@ -1,0 +1,25 @@
+.slds-button {
+    height: 80px !important;
+}
+.customIcon {
+    width: 25px;
+    height: 25px;
+}
+
+.slds-table .slds-row-number:after {
+    content: counter(none) !important ;
+    display: none !important ;
+    width: 0px !important;
+}
+
+.buttonColumn {
+    background-color:red !important;
+}
+.button-column {
+    background-color:blue;
+}
+
+.slds-table th:last-child { 
+    background: yellow;
+    width: 5px;
+ }

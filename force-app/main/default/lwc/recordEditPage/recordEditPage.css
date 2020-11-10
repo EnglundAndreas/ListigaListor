@@ -1,0 +1,3 @@
+.slds-modal__header, .slds-modal__content, .slds-modal__footer {
+    min-width: 600px;
+}
